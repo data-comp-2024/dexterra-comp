@@ -1,0 +1,118 @@
+{
+  "floors": [
+    1,
+    2,
+    3
+  ],
+  "flights": {
+    "AA101": {
+      "arrival_time": 3600,
+      "passengers": 180,
+      "aircraft_type": "medium",
+      "gate": "A1",
+      "flow_type": "deplaning"
+    },
+    "DL205": {
+      "arrival_time": 5400,
+      "passengers": 250,
+      "aircraft_type": "large",
+      "gate": "B2",
+      "flow_type": "deplaning"
+    },
+    "UA150": {
+      "arrival_time": 14400,
+      "passengers": 200,
+      "aircraft_type": "medium",
+      "gate": "A3",
+      "flow_type": "boarding"
+    }
+  },
+  "restrooms": {
+    "R1A": {
+      "floor": 1,
+      "x": 50,
+      "y": 20,
+      "capacity_M": 0.25,
+      "capacity_F": 0.2
+    },
+    "R1B": {
+      "floor": 1,
+      "x": 150,
+      "y": 20,
+      "capacity_M": 0.25,
+      "capacity_F": 0.2
+    },
+    "R2A": {
+      "floor": 2,
+      "x": 75,
+      "y": 30,
+      "capacity_M": 0.3,
+      "capacity_F": 0.24
+    },
+    "R2B": {
+      "floor": 2,
+      "x": 125,
+      "y": 30,
+      "capacity_M": 0.3,
+      "capacity_F": 0.24
+    },
+    "R3A": {
+      "floor": 3,
+      "x": 100,
+      "y": 25,
+      "capacity_M": 0.2,
+      "capacity_F": 0.16
+    }
+  },
+  "entry_points": {
+    "Gate_A": {
+      "floor": 1,
+      "x": 0,
+      "y": 0
+    },
+    "Gate_B": {
+      "floor": 2,
+      "x": 200,
+      "y": 0
+    },
+    "Gate_C": {
+      "floor": 3,
+      "x": 100,
+      "y": 0
+    },
+    "Security": {
+      "floor": 2,
+      "x": 50,
+      "y": 0
+    },
+    "Arrivals": {
+      "floor": 1,
+      "x": 150,
+      "y": 0
+    }
+  },
+  "gate_mappings": {
+    "A1": "Gate_A",
+    "A3": "Gate_A",
+    "B2": "Gate_B",
+    "C1": "Gate_C"
+  },
+  "movement_speeds": {
+    "walking": 1.2,
+    "elevator": 2.0,
+    "stairs": 0.8,
+    "elevator_wait": 45
+  },
+  "choice_params": {
+    "beta_walk": -0.05,
+    "beta_wait": -0.1,
+    "beta_vertical": -2.0,
+    "theta": 0.5
+  },
+  "simulation": {
+    "time_step": 5.0,
+    "duration": 14400,
+    "alpha_arrival": 0.4,
+    "alpha_departure": 0.6
+  }
+}
