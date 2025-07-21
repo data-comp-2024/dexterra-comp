@@ -1,6 +1,6 @@
 # Multi-Floor Airport Restroom Flow Simulator
 
-A **modular simulation framework** for analyzing passenger flow and restroom usage in multi-floor airport terminals.
+A **modular simulation framework** for analyzing passenger flow and restroom usage in multi-floor airport terminals, with additional modules for time series forecasting of future demand. 
 
 ```
 Poop-profiles/
@@ -12,7 +12,11 @@ Poop-profiles/
 │   ├── assignment_methods.py     # Passenger choice models
 │   ├── queue_dynamics.py         # M/M/1 queue modeling
 │   ├── visualization.py          # Plotting & analysis
-│   └── simulator.py              # Main orchestrator
+│   ├── simulator.py              # Main orchestrator
+|   ├── ts_forecasting_metamodel.py # Interfaces for TS models
+|   ├── ts_arima.py               # Wrapper for statsmodels ARIMA model
+|   ├── ts_prophet.py             # Wrapper for Facebook Prophet model
+|   └── ts_ts_day_of_year_statistic_model.py  # Fallback option: simple model using statistics based on historical data                 
 ├── impl/                          # Implementation scripts
 │   └── main.py                   # Main execution script
 ├── test/                          # Interactive testing
