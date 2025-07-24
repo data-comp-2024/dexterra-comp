@@ -1,0 +1,132 @@
+{
+  "crew_management": {
+    "crew_members": [
+      {
+        "name": "Merlin",
+        "shift_start_hours": 0.0,
+        "shift_end_hours": 8.0,
+        "skill_level": 1.8,
+        "hourly_rate": 22.0,
+        "base_location": "Base_1",
+        "role": "Early shift lead"
+      },
+      {
+        "name": "Sia",
+        "shift_start_hours": 0.5,
+        "shift_end_hours": 8.5,
+        "skill_level": 1.5,
+        "hourly_rate": 19.0,
+        "base_location": "Base_2",
+        "role": "Early shift support"
+      },
+      {
+        "name": "Taylor Swift",
+        "shift_start_hours": 1.0,
+        "shift_end_hours": 9.0,
+        "skill_level": 1.7,
+        "hourly_rate": 21.0,
+        "base_location": "Base_3",
+        "role": "Early shift specialist"
+      },
+      {
+        "name": "Batman",
+        "shift_start_hours": 2.0,
+        "shift_end_hours": 10.0,
+        "skill_level": 1.6,
+        "hourly_rate": 20.0,
+        "base_location": "Base_1",
+        "role": "Mid-shift coverage"
+      },
+      {
+        "name": "Harry Potter",
+        "shift_start_hours": 2.5,
+        "shift_end_hours": 10.5,
+        "skill_level": 1.9,
+        "hourly_rate": 23.0,
+        "base_location": "Base_2",
+        "role": "Mid-shift lead"
+      },
+      {
+        "name": "Frankenstein",
+        "shift_start_hours": 3.0,
+        "shift_end_hours": 11.0,
+        "skill_level": 1.4,
+        "hourly_rate": 18.5,
+        "base_location": "Base_3",
+        "role": "Late shift coverage"
+      },
+      {
+        "name": "Jet Lee",
+        "shift_start_hours": 3.5,
+        "shift_end_hours": 11.5,
+        "skill_level": 1.8,
+        "hourly_rate": 22.5,
+        "base_location": "Base_1",
+        "role": "Late shift specialist"
+      },
+      {
+        "name": "Henry Cavill",
+        "shift_start_hours": 0.0,
+        "shift_end_hours": 5.0,
+        "skill_level": 2.0,
+        "hourly_rate": 25.0,
+        "base_location": "Base_2",
+        "role": "Emergency response specialist"
+      }
+    ]
+  },
+  "cleaning_operations": {
+    "cleaning_durations": {
+      "routine": 15.0,
+      "emergency": 25.0,
+      "call_in": 20.0,
+      "deep_clean": 45.0,
+      "usage_based": 15.0
+    },
+    "cleaning_intervals": {
+      "high_traffic": 1.0,
+      "medium_traffic": 1.5,
+      "low_traffic": 2.0
+    },
+    "cost_parameters": {
+      "overtime_multiplier": 1.5,
+      "travel_cost_per_minute": 0.5,
+      "disruption_cost_multiplier": 50.0,
+      "capacity_reduction_per_cleaner": 0.3
+    },
+    "operational_thresholds": {
+      "peak_demand_threshold": 0.05,
+      "usage_threshold_for_cleaning": 15,
+      "max_cleaners_per_bathroom": 3
+    }
+  },
+  "supply_management": {
+    "supply_depot_location": "Base_2",
+    "supplies_per_cleaning": 15.0,
+    "restock_time_minutes": 10.0,
+    "restock_cost": 25.0,
+    "initial_supply_level": 100.0,
+    "low_supply_threshold": 15.0
+  },
+  "emergency_response": {
+    "call_in_thresholds": {
+      "high_queue_threshold": 0.8,
+      "long_wait_threshold_seconds": 60,
+      "high_arrival_rate_threshold": 0.08,
+      "critical_queue_threshold": 1.5,
+      "critical_wait_threshold_seconds": 120
+    },
+    "response_deadlines": {
+      "emergency_deadline_minutes": 5,
+      "call_in_deadline_minutes": 15,
+      "routine_deadline_hours": 2
+    },
+    "random_event_probability": 0.0003
+  },
+  "system_parameters": {
+    "simulation_time_step": 5.0,
+    "progress_update_interval": 0.1,
+    "base_travel_time_seconds": 180.0,
+    "floor_change_time_seconds": 60.0
+  }
+} 

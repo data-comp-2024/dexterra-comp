@@ -18,17 +18,20 @@ Poop-profiles/
 |   ├── ts_prophet.py             # Wrapper for Facebook Prophet model
 |   └── ts_ts_day_of_year_statistic_model.py  # Fallback option: simple model using statistics based on historical data                 
 ├── impl/                          # Implementation scripts
-│   └── main.py                   # Main execution script
+│   └── main.py                   # Main execution script (both the simulation and the crew assignment)
+│   |── main_simulaiton.py        # Main script for running the simulation
 ├── test/                          # Interactive testing
 │   └── parameter_exploration.ipynb  # Jupyter notebook (not online still)
 ├── results/                       # Output files
 │   ├── multi_floor_dashboard.png
 │   ├── floor_analysis.png
 │   ├── capacity_utilization.png
-│   └── flight_impact.png
+│   └── ...
 ├── multi_floor_config.json       # JSON configuration file
+├── crew_config.json              # JSON configuration file
 ├── requirements.txt               # Python dependencies
 ├── simulation_logic.markdown  # Algorithm specification
+├── crew_scheduling_logic.markdown  # Algorithm specification
 └── README.md                      # This file
 ```
 
@@ -40,7 +43,7 @@ Poop-profiles/
 pip install -r requirements.txt
 ```
 
-### 2. Run Simulation
+### 2. Run Simulation and crew scheduling
 
 ```bash
 python impl/main.py

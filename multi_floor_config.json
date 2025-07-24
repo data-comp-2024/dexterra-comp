@@ -6,25 +6,46 @@
   ],
   "flights": {
     "AA101": {
-      "arrival_time": 3600,
+      "arrival_time": 1800,
       "passengers": 180,
       "aircraft_type": "medium",
       "gate": "A1",
       "flow_type": "deplaning"
     },
     "DL205": {
-      "arrival_time": 5400,
+      "arrival_time": 3600,
       "passengers": 250,
       "aircraft_type": "large",
       "gate": "B2",
       "flow_type": "deplaning"
     },
     "UA150": {
-      "arrival_time": 14400,
+      "arrival_time": 7200,
       "passengers": 200,
       "aircraft_type": "medium",
       "gate": "A3",
       "flow_type": "boarding"
+    },
+    "SW301": {
+      "arrival_time": 10800,
+      "passengers": 160,
+      "aircraft_type": "medium",
+      "gate": "A1",
+      "flow_type": "deplaning"
+    },
+    "JB450": {
+      "arrival_time": 14400,
+      "passengers": 220,
+      "aircraft_type": "large",
+      "gate": "B2",
+      "flow_type": "boarding"
+    },
+    "AA250": {
+      "arrival_time": 18000,
+      "passengers": 190,
+      "aircraft_type": "medium",
+      "gate": "C1",
+      "flow_type": "deplaning"
     }
   },
   "restrooms": {
@@ -111,7 +132,7 @@
   },
   "simulation": {
     "time_step": 5.0,
-    "duration": 14400,
+    "duration": 21600,
     "alpha_arrival": 0.4,
     "alpha_departure": 0.6
   }
