@@ -55,8 +55,8 @@ This automatically:
 - Generates comprehensive analysis plots
 - Saves results to `results/` directory
 
-### 3. Interactive Exploration (not online)
+### 3. Interactive Exploration
 
 ```bash
-jupyter notebook test/parameter_exploration.ipynb
+streamlit run parameter_exploration_dashboard.py
 ```
