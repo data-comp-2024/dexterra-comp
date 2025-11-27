@@ -1,0 +1,14 @@
+{
+    "subsample": 1.0,
+    "reg_lambda": 0.5,
+    "reg_alpha": 0.1,
+    "num_leaves": 63,
+    "n_estimators": 100,
+    "min_child_samples": 50,
+    "max_depth": 5,
+    "learning_rate": 0.1,
+    "colsample_bytree": 0.7,
+    "resampling_period": "24H",
+    "decay_param": 0.15000000000000002,
+    "distance_source": "path"
+}

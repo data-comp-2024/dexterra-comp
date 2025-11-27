@@ -1,83 +1,83 @@
 {
-  "timestamp": "2025-07-24T16:52:04",
+  "timestamp": "2025-09-11T14:25:08",
   "simulation_parameters": {
     "duration_hours": 6.0,
     "crew_count": 8,
-    "total_tasks": 54,
-    "task_completion_rate": 74.07407407407408
+    "total_tasks": 57,
+    "task_completion_rate": 91.22807017543859
   },
   "kpis": {
-    "total_cost": 489.5,
-    "avg_response_time": 26.90909090909091,
-    "passenger_satisfaction": 92.375,
+    "total_cost": 593.875,
+    "avg_response_time": 30.596153846153847,
+    "passenger_satisfaction": 92.21153846153847,
     "crew_utilization": 14.285714285714285,
-    "emergency_response_time": 28.25,
-    "task_completion_rate": 74.07407407407408,
+    "emergency_response_time": 28.2,
+    "task_completion_rate": 91.22807017543859,
     "overtime_hours": 0.0,
-    "cleaning_quality_score": 96.125,
-    "disruption_cost": 8772.37621153958,
+    "cleaning_quality_score": 95.82692307692308,
+    "disruption_cost": 12271.906781744618,
     "avg_capacity_reduction": 30.0
   },
   "cost_breakdown": {
-    "labor_cost": 249.49999999999997,
+    "labor_cost": 311.875,
     "overtime_cost": 0.0,
-    "supply_cost": 140.0,
-    "emergency_cost": 63.0,
+    "supply_cost": 182.0,
+    "emergency_cost": 35.0,
     "restock_cost": 100.0
   },
   "usage_patterns": {
-    "peak_usage_time": 3875.0,
+    "peak_usage_time": 3630.0,
     "peak_usage_rate": 0.1555555555555556,
     "avg_usage_rate": 0.02624022633744856,
     "restroom_stress": {
       "max_queues": {
-        "R1A": 0.3668347932052089,
-        "R1B": 0.3166584508573003,
-        "R2A": 0,
-        "R2B": 0,
-        "R3A": 0.7644589995189541
+        "R1A": 0.35842292137912835,
+        "R1B": 0.354486145131113,
+        "R2A": 0.32051281947997534,
+        "R2B": 0.32051282046077556,
+        "R3A": 0.46677099513405834
       },
       "max_waits": {
-        "R1A": 2.957234756782256,
-        "R1B": 2.52385731970228,
-        "R2A": 2.7115193389232746e-05,
-        "R2B": 6.19033187943957e-05,
-        "R3A": 8.644894402259656
+        "R1A": 2.72952836694029,
+        "R1B": 2.691932154014622,
+        "R2A": 1.6025640959079894,
+        "R2B": 1.6025641022287118,
+        "R3A": 6.723434056191778
       }
     }
   },
   "top_performers": [
     [
-      "CREW_005",
+      "CREW_008",
       {
-        "name": "Harry Potter",
-        "tasks_completed": 6,
-        "total_work_time_hours": 2.0,
-        "avg_task_duration": 20.0,
-        "emergency_tasks": 3,
-        "efficiency_score": 84.0
+        "name": "Henry Cavill",
+        "tasks_completed": 8,
+        "total_work_time_hours": 2.4166666666666665,
+        "avg_task_duration": 18.125,
+        "emergency_tasks": 2,
+        "efficiency_score": 86.0
       }
     ],
     [
       "CREW_001",
       {
         "name": "Merlin",
-        "tasks_completed": 4,
-        "total_work_time_hours": 1.4166666666666667,
-        "avg_task_duration": 21.25,
-        "emergency_tasks": 3,
-        "efficiency_score": 77.0
+        "tasks_completed": 10,
+        "total_work_time_hours": 3.0,
+        "avg_task_duration": 18.0,
+        "emergency_tasks": 2,
+        "efficiency_score": 84.0
       }
     ],
     [
-      "CREW_008",
+      "CREW_005",
       {
-        "name": "Henry Cavill",
-        "tasks_completed": 7,
-        "total_work_time_hours": 1.75,
-        "avg_task_duration": 15.0,
-        "emergency_tasks": 0,
-        "efficiency_score": 74.0
+        "name": "Harry Potter",
+        "tasks_completed": 5,
+        "total_work_time_hours": 1.4166666666666667,
+        "avg_task_duration": 17.0,
+        "emergency_tasks": 1,
+        "efficiency_score": 72.0
       }
     ]
   ]
