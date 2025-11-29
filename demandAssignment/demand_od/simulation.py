@@ -280,7 +280,7 @@ def simulate_bathroom_assignment(
             
             for b in candidates:
                 _, walk_t = dist_info[b]
-                cost = walk_t + 30*predicted_wait[b]
+                cost = walk_t + 300 * predicted_wait[b]
                 if cost < best_cost:
                     best_cost = cost
                     best_b = b

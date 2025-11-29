@@ -16,12 +16,12 @@ SECURITY_COORDS = {'name': 'Security', 'x': -4400.52, 'y': 2152.793778}
 
 # Simulation parameters
 DEFAULT_WALK_SPEED_M_PER_MIN = 80.0  # meters per minute
-DEFAULT_NUM_SERVERS = 10
+DEFAULT_NUM_SERVERS = 15
 DEFAULT_MEAN_SERVICE_MIN = 2.0
 DEFAULT_BATCH_MINUTES = 5
 
 # Passenger behavior parameters
-DEFAULT_P_BATHROOM = 0.4  # Probability of using bathroom
+DEFAULT_P_BATHROOM = 0.2  # Probability of using bathroom
 DEFAULT_MALE_SHARE = 0.5  # Share of male passengers
 
 # Entry time generation parameters

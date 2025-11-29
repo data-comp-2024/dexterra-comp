@@ -25,7 +25,8 @@ from demand_od.config import (
 )
 
 # Configuration
-DATA_DIR = '/Users/hesamrashidi/UofT/PhD/Semester 7/Craptimizer/data/GTAA flights arrival departure data 2024'
+DATA_DIR = '/Users/sebastianvillada/Desktop/Misc/BigData Comp/GTAA flights arrival departure data 2024'#'/Users/hesamrashidi/UofT/PhD/Semester 7/Craptimizer/data/GTAA flights arrival departure data 2024'
+# For seb: '/Users/sebastianvillada/Desktop/Misc/BigData Comp/GTAA flights arrival departure data 2024'
 DATE_STR = '2024-01-01'
 
 def main():

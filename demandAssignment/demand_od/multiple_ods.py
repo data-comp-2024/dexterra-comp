@@ -30,7 +30,7 @@ def main():
     parser.add_argument(
         '--data-dir',
         type=str,
-        default='/Users/hesamrashidi/UofT/PhD/Semester 7/Craptimizer/data/GTAA flights arrival departure data 2024',
+        default='/Users/sebastianvillada/Desktop/Misc/BigData Comp/GTAA flights arrival departure data 2024',#'/Users/hesamrashidi/UofT/PhD/Semester 7/Craptimizer/data/GTAA flights arrival departure data 2024',
         help='Path to data directory'
     )
     parser.add_argument(
