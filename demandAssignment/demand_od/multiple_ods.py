@@ -37,8 +37,8 @@ def main():
         '--flow-type',
         type=str,
         choices=['arrivals', 'departures'],
-        default='departures',
-        help='Flow type: arrivals or departures'
+        default=None,
+        help='[DEPRECATED] Flow type is now automatically detected from Origin/Destination. This parameter is ignored.'
     )
     parser.add_argument(
         '--p-bathroom',
@@ -114,17 +114,21 @@ def main():
     print("Creating unified OD dataframe...")
     df_unified = create_unified_od_dataframe(df_arrivals, df_departures)
     
-    # Build passenger-level data for all ODs
+    # Build passenger-level data for all ODs (automatically handles both arrivals and departures)
     print(f"Building passenger-level data for all ODs on {args.date}...")
+    print("(Automatically detecting arrivals from Security and departures to Security)")
     try:
         df_pass_all = build_passenger_df_for_day(
             df_unified,
             date_str=args.date,
-            flow_type=args.flow_type,
             p_bathroom=args.p_bathroom,
             male_share=args.male_share
         )
         print(f"Generated {len(df_pass_all)} passengers")
+        arrivals_count = len(df_pass_all[df_pass_all['origin'] == 'Security'])
+        departures_count = len(df_pass_all[df_pass_all['destination'] == 'Security'])
+        print(f"  - Arrivals (from Security): {arrivals_count}")
+        print(f"  - Departures (to Security): {departures_count}")
         print(f"Unique origins: {df_pass_all['origin'].nunique()}")
         print(f"Unique destinations: {df_pass_all['destination'].nunique()}")
     except ValueError as e:

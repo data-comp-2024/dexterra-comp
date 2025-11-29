@@ -5,6 +5,3 @@ Command-line (single OD):
 
 Command-line (multiple ODs):
 `python -m demand_od.multiple_ods --date 2024-01-01`
-
-Command-line (output JSONs: Multi-OD Results JSON and Wait Times JSON):
-`python export_json_example.py`

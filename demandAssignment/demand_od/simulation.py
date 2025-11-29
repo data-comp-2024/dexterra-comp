@@ -24,8 +24,8 @@ def build_passenger_df_for_od(
     origin_node,
     dest_node,
     flow_type='departures',
-    p_bathroom=0.4,
-    male_share=0.5
+    p_bathroom=None,
+    male_share=None
 ):
     """
     Build passenger-level dataframe for a single OD pair on a given day.
@@ -42,10 +42,10 @@ def build_passenger_df_for_od(
         Destination node name
     flow_type : str
         'arrivals' or 'departures'
-    p_bathroom : float
-        Probability of using bathroom (default 0.4)
-    male_share : float
-        Share of male passengers (default 0.5)
+    p_bathroom : float, optional
+        Probability of using bathroom (default from config)
+    male_share : float, optional
+        Share of male passengers (default from config)
         
     Returns:
     --------
@@ -53,6 +53,13 @@ def build_passenger_df_for_od(
         Passenger-level dataframe with columns: entry_time, origin, destination,
         uses_bathroom, is_male
     """
+    from .config import DEFAULT_P_BATHROOM, DEFAULT_MALE_SHARE
+    
+    if p_bathroom is None:
+        p_bathroom = DEFAULT_P_BATHROOM
+    if male_share is None:
+        male_share = DEFAULT_MALE_SHARE
+    
     selected_date = pd.to_datetime(date_str).date()
     mask = (
         (df_unified['Actual Arrival Time'].dt.date == selected_date) &
@@ -97,12 +104,13 @@ def build_passenger_df_for_od(
 def build_passenger_df_for_day(
     df_unified,
     date_str,
-    flow_type='departures',
-    p_bathroom=0.4,
-    male_share=0.5
+    p_bathroom=None,
+    male_share=None
 ):
     """
     Build passenger-level dataframe for ALL OD pairs on a given day.
+    Automatically detects arrivals (from Security) and departures (to Security)
+    and uses appropriate entry time generation for each.
     
     Parameters:
     -----------
@@ -110,12 +118,10 @@ def build_passenger_df_for_day(
         Unified OD dataframe
     date_str : str
         Date string in format 'YYYY-MM-DD'
-    flow_type : str
-        'arrivals' or 'departures'
-    p_bathroom : float
-        Probability of using bathroom (default 0.4)
-    male_share : float
-        Share of male passengers (default 0.5)
+    p_bathroom : float, optional
+        Probability of using bathroom (default from config)
+    male_share : float, optional
+        Share of male passengers (default from config)
         
     Returns:
     --------
@@ -123,6 +129,13 @@ def build_passenger_df_for_day(
         Passenger-level dataframe with columns: entry_time, origin, destination,
         uses_bathroom, is_male
     """
+    from .config import DEFAULT_P_BATHROOM, DEFAULT_MALE_SHARE
+    
+    if p_bathroom is None:
+        p_bathroom = DEFAULT_P_BATHROOM
+    if male_share is None:
+        male_share = DEFAULT_MALE_SHARE
+    
     selected_date = pd.to_datetime(date_str).date()
     df_day = df_unified[df_unified['Actual Arrival Time'].dt.date == selected_date].copy()
     
@@ -132,6 +145,17 @@ def build_passenger_df_for_day(
         pax = int(row['Pax'])
         if pax <= 0:
             continue
+        
+        # Determine flow type based on Origin/Destination
+        # Arrivals: Origin = 'Security' -> flow_type = 'arrivals'
+        # Departures: Destination = 'Security' -> flow_type = 'departures'
+        if row['Origin'] == 'Security':
+            flow_type = 'arrivals'
+        elif row['Destination'] == 'Security':
+            flow_type = 'departures'
+        else:
+            # Fallback: assume departures if neither matches
+            flow_type = 'departures'
         
         entry_times = generate_entry_times(row['Actual Arrival Time'], pax, flow_type)
         uses_bathroom = np.random.rand(pax) < p_bathroom

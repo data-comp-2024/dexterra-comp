@@ -16,6 +16,13 @@ from demand_od import (
     export_multi_od_results_to_json,
     export_wait_times_by_interval
 )
+from demand_od.config import (
+    DEFAULT_P_BATHROOM,
+    DEFAULT_MALE_SHARE,
+    DEFAULT_NUM_SERVERS,
+    DEFAULT_MEAN_SERVICE_MIN,
+    DEFAULT_BATCH_MINUTES
+)
 
 # Configuration
 DATA_DIR = '/Users/hesamrashidi/UofT/PhD/Semester 7/Craptimizer/data/GTAA flights arrival departure data 2024'
@@ -37,25 +44,29 @@ def main():
     print("\n2. Creating unified OD dataframe...")
     df_unified = create_unified_od_dataframe(df_arrivals, df_departures)
     
-    # Build passenger-level data
+    # Build passenger-level data (automatically handles both arrivals and departures)
     print(f"\n3. Building passenger-level data for {DATE_STR}...")
+    print("   (Automatically detecting arrivals from Security and departures to Security)")
     df_pass_all = build_passenger_df_for_day(
         df_unified,
         date_str=DATE_STR,
-        flow_type='departures',
-        p_bathroom=0.4,
-        male_share=0.5
+        p_bathroom=DEFAULT_P_BATHROOM,
+        male_share=DEFAULT_MALE_SHARE
     )
     print(f"   Generated {len(df_pass_all)} passengers")
+    arrivals_count = len(df_pass_all[df_pass_all['origin'] == 'Security'])
+    departures_count = len(df_pass_all[df_pass_all['destination'] == 'Security'])
+    print(f"   - Arrivals (from Security): {arrivals_count}")
+    print(f"   - Departures (to Security): {departures_count}")
     
     # Simulate bathroom assignment
     print("\n4. Simulating bathroom assignment...")
     results_all = simulate_bathroom_assignment_all_ods(
         df_pass_all,
         df_gate_washroom_coords,
-        num_servers=10,
-        mean_service_min=3.0,
-        batch_minutes=5
+        num_servers=DEFAULT_NUM_SERVERS,
+        mean_service_min=DEFAULT_MEAN_SERVICE_MIN,
+        batch_minutes=DEFAULT_BATCH_MINUTES
     )
     print(f"   Simulated assignments for {len(results_all)} bathrooms")
     
