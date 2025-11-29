@@ -3,6 +3,7 @@ import csv
 import json
 import yaml
 import joblib
+import argparse
 import numpy as np
 import pandas as pd
 
@@ -13,13 +14,35 @@ from sklearn.model_selection import RandomizedSearchCV, TimeSeriesSplit
 from sklearn.metrics import mean_squared_error, r2_score
 
 # ============================================================
+# Parse command-line arguments
+# ============================================================
+
+parser = argparse.ArgumentParser(description="Hyperparameter tuning model")
+parser.add_argument(
+    "--data_folder",
+    type=str,
+    required=True,
+    help="Path to the root data folder"
+)
+args = parser.parse_args()
+
+DATA_ROOT = args.data_folder
+
+# ============================================================
 # 1. LOAD RAW DATA (one time only)
 # ============================================================
 
 # --- Happy or Not data ---
 
+happy_path = os.path.join(
+    DATA_ROOT,
+    "OneDrive_2025-11-03 (1)",
+    "Happy or Not 2024",
+    "Happy or Not Combined Data 2024.csv"
+)
+
 happy_or_not = pd.read_csv(
-    r"C:\Users\mwendwa.kiko\Documents\Personal_Kiko\Dexterra Competition\Data\OneDrive_2025-11-03 (1)\Happy or Not 2024\Happy or Not Combined Data 2024.csv",
+    happy_path,
     sep=';',
     engine='python',           # more tolerant than the default C engine
     quoting=csv.QUOTE_NONE,    # don't treat quotes as special
@@ -77,12 +100,13 @@ happy_or_not_filtered = happy_or_not[happy_or_not['zone'].isin(zones_interest)]
 
 # --- Tasks data ---
 
-root_folder = r'C:\Users\mwendwa.kiko\Documents\Personal_Kiko\Dexterra Competition\Data\lighthouse.io\lighthouse.io'
+root_folder = os.path.join(DATA_ROOT, 'lighthouse.io', 'lighthouse.io')
 
 all_files = []
-for file in os.listdir(os.path.join(root_folder, 'Tasks 2024')):
+tasks_2024_folder = os.path.join(root_folder, 'Tasks 2024')
+for file in os.listdir(tasks_2024_folder):
     if file.endswith('.xlsx'):
-        all_files.append(pd.read_excel(os.path.join(root_folder, 'Tasks 2024', file)))
+        all_files.append(pd.read_excel(os.path.join(tasks_2024_folder, file)))
 tasks = pd.concat(all_files, ignore_index=True)
 
 tasks_washroom = tasks.loc[tasks['Title'] == 'Washroom Checklist'].copy()
@@ -122,12 +146,17 @@ tasks_washroom_filtered_merged['Name_or_other'] = np.where(
 
 # --- Flight info data ---
 
-flight_info = pd.read_excel(
-    r'C:\Users\mwendwa.kiko\Documents\Personal_Kiko\Dexterra Competition\Data\OneDrive_2025-11-03\GTAA flights arrival departure data 2024\Pax info YYZ.xlsx'
+flight_info_path = os.path.join(
+    DATA_ROOT,
+    'OneDrive_2025-11-03',
+    'GTAA flights arrival departure data 2024',
+    'Pax info YYZ.xlsx'
 )
+flight_info = pd.read_excel(flight_info_path)
 flight_info['Arr Gate'] = flight_info['Arr Gate'].astype(str)
 
-with open(r'airport_gates2.yml', 'r') as file:
+airport_gates_path = os.path.join(DATA_ROOT, 'airport_gates2.yml')
+with open(airport_gates_path, 'r') as file:
     airport_gates = yaml.safe_load(file)
 
 zone_mapping = {}
@@ -140,7 +169,8 @@ flight_info['Arr Actual Arrival Time'] = pd.to_datetime(flight_info['Arr Actual 
 
 # --- Coordinates and distance tables ---
 
-coordinates = pd.read_csv('gates_washrooms.csv')
+coordinates_path = os.path.join(DATA_ROOT, 'gates_washrooms.csv')
+coordinates = pd.read_csv(coordinates_path)
 
 # Centering coordinates (as in original)
 centroid = coordinates[['x', 'y']].mean()
@@ -159,7 +189,14 @@ distances_df = pd.DataFrame(
 distances_df = distances_df.rename(columns={'level_0': 'gate_name', 'level_1': 'washroom_name'})
 
 # Path distances
-path_distances = pd.read_csv('./full_repo/dexterra-comp/maps/gate_shortest_paths.csv')
+path_distances_path = os.path.join(
+    DATA_ROOT,
+    'full_repo',
+    'dexterra-comp',
+    'maps',
+    'gate_shortest_paths.csv'
+)
+path_distances = pd.read_csv(path_distances_path)
 path_distances[['origin_label', 'dest_label']] = path_distances[['origin_label', 'dest_label']].apply(
     lambda x: x.str.replace('gate_', '')
 )
@@ -182,7 +219,8 @@ path_distances = path_distances[
 
 # --- Downstream washrooms filter (apply to both distance tables) ---
 
-downstream_washrooms = pd.read_excel('downstream_washrooms.xlsx')
+downstream_path = os.path.join(DATA_ROOT, 'downstream_washrooms.xlsx')
+downstream_washrooms = pd.read_excel(downstream_path)
 downstream_washrooms['Downstream_washrooms'] = downstream_washrooms['Downstream_washrooms'].apply(
     lambda x: [item.strip() for item in str(x).split(',')]
 )
@@ -224,9 +262,13 @@ DISTANCE_TABLES = {
 
 # --- Avg wait times JSON (global raw DF, to be resampled per dataset) ---
 
-demand_json = json.load(open(
-    r'C:\Users\mwendwa.kiko\Documents\Personal_Kiko\Dexterra Competition\Data\OneDrive_2025-11-03\GTAA flights arrival departure data 2024\all_wait_times.json'
-))
+wait_json_path = os.path.join(
+    DATA_ROOT,
+    'OneDrive_2025-11-03',
+    'GTAA flights arrival departure data 2024',
+    'all_wait_times.json'
+)
+demand_json = json.load(open(wait_json_path))
 
 wait_rows = []
 for date_str, bathrooms in demand_json.items():
@@ -648,9 +690,9 @@ if __name__ == "__main__":
 
     # Dataset-specific hyperparameters
     # Now we have THREE independent resampling-period hyperparameters:
-    resampling_period_grid_7_15 = ['1H', '2H', '4H', '8H']
-    resampling_period_grid_15_21 = ['1H', '2H', '4H', '6H']
-    resampling_period_grid_21_7 = ['1H', '2H', '4H', '8H', '12H']
+    resampling_period_grid_7_15 = ['1H', '2H', '4H', '8H', '12H', '24H']
+    resampling_period_grid_15_21 = ['1H', '2H', '4H', '8H', '12H', '24H']
+    resampling_period_grid_21_7 = ['1H', '2H', '4H', '8H', '12H', '24H']
 
     decay_param_grid = np.linspace(0.0, 0.5, 11)   # 0.00, 0.05, ..., 0.50
     distance_source_grid = ['path', 'euclidean']
