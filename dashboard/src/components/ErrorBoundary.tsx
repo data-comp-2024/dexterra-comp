@@ -38,17 +38,39 @@ class ErrorBoundary extends Component<Props, State> {
             justifyContent: 'center',
             minHeight: '100vh',
             p: 3,
+            bgcolor: 'background.default',
           }}
         >
-          <Typography variant="h4" gutterBottom>
+          <Typography variant="h4" gutterBottom color="error">
             Something went wrong
           </Typography>
-          <Typography variant="body1" color="error" sx={{ mb: 2 }}>
-            {this.state.error?.message || 'An unexpected error occurred'}
+          <Typography variant="body1" color="text.secondary" sx={{ mb: 3, textAlign: 'center', maxWidth: 500 }}>
+            {this.state.error?.message || 'An unexpected error occurred. Please try refreshing the page.'}
           </Typography>
-          <Button variant="contained" onClick={this.handleReset}>
-            Try again
-          </Button>
+          <Box sx={{ display: 'flex', gap: 2 }}>
+            <Button variant="outlined" onClick={() => window.location.reload()}>
+              Refresh Page
+            </Button>
+            <Button variant="contained" onClick={this.handleReset}>
+              Try Again
+            </Button>
+          </Box>
+          {process.env.NODE_ENV === 'development' && this.state.error && (
+            <Box
+              sx={{
+                mt: 4,
+                p: 2,
+                bgcolor: 'error.light',
+                borderRadius: 1,
+                maxWidth: 800,
+                width: '100%',
+              }}
+            >
+              <Typography variant="caption" component="pre" sx={{ whiteSpace: 'pre-wrap', fontSize: '0.75rem' }}>
+                {this.state.error.stack}
+              </Typography>
+            </Box>
+          )}
         </Box>
       )
     }

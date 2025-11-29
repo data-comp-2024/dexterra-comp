@@ -113,6 +113,8 @@ The following concepts should be treated as **shared domain language** across UI
   * Bodily fluids.
   * Slip hazard.
   * Odor threshold exceeded.
+  * Just too much poop.
+  * Inadequate aim.
 * Must be tracked with:
 
   * Detection timestamp.

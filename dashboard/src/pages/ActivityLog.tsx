@@ -1,4 +1,5 @@
-import { Typography, Box, Card, CardContent } from '@mui/material'
+import { Typography, Box } from '@mui/material'
+import ActivityLogList from '../components/ActivityLog/ActivityLogList'
 
 function ActivityLog() {
   return (
@@ -6,13 +7,7 @@ function ActivityLog() {
       <Typography variant="h4" sx={{ mb: 3, fontWeight: 600 }}>
         Activity Log
       </Typography>
-      <Card>
-        <CardContent>
-          <Typography variant="body1" color="text.secondary">
-            This is the Activity Log tab. Implementation coming in Phase 11.
-          </Typography>
-        </CardContent>
-      </Card>
+      <ActivityLogList />
     </Box>
   )
 }

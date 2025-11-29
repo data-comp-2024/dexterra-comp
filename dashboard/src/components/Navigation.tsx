@@ -48,9 +48,11 @@ function Navigation() {
         display: 'flex',
         flexDirection: 'column',
         height: '100%',
+        flexShrink: 0,
+        overflow: 'hidden',
       }}
     >
-      <List sx={{ flex: 1, pt: 2, pb: 1 }}>
+      <List sx={{ flex: 1, pt: 2, pb: 1, overflowY: 'auto', minHeight: 0 }}>
         {tabs.map((tab) => {
           const Icon = tab.icon
           const isActive = location.pathname === tab.path || (tab.path === '/live-ops' && location.pathname === '/')
@@ -60,6 +62,8 @@ function Navigation() {
               <ListItemButton
                 component={NavLink}
                 to={tab.path}
+                aria-label={`Navigate to ${tab.label}`}
+                aria-current={isActive ? 'page' : undefined}
                 sx={{
                   py: 1.25,
                   px: 2,

@@ -1,6 +1,6 @@
-import { createTheme } from '@mui/material/styles'
+import { createTheme, ThemeOptions } from '@mui/material/styles'
 
-export const theme = createTheme({
+const baseTheme: ThemeOptions = {
   palette: {
     primary: {
       main: '#7B2CBF', // Purple
@@ -22,14 +22,6 @@ export const theme = createTheme({
     },
     success: {
       main: '#06A77D',
-    },
-    background: {
-      default: '#F8F9FA',
-      paper: '#FFFFFF',
-    },
-    text: {
-      primary: '#212529',
-      secondary: '#6C757D',
     },
   },
   typography: {
@@ -73,5 +65,68 @@ export const theme = createTheme({
       },
     },
   },
+}
+
+// Light theme
+export const lightTheme = createTheme({
+  ...baseTheme,
+  palette: {
+    ...baseTheme.palette,
+    mode: 'light',
+    background: {
+      default: '#F8F9FA',
+      paper: '#FFFFFF',
+    },
+    text: {
+      primary: '#212529',
+      secondary: '#6C757D',
+    },
+  },
 })
+
+// Dark theme
+export const darkTheme = createTheme({
+  ...baseTheme,
+  palette: {
+    ...baseTheme.palette,
+    mode: 'dark',
+    background: {
+      default: '#121212',
+      paper: '#1E1E1E',
+    },
+    text: {
+      primary: '#FFFFFF',
+      secondary: 'rgba(255, 255, 255, 0.7)',
+    },
+    divider: 'rgba(255, 255, 255, 0.12)',
+  },
+  components: {
+    ...baseTheme.components,
+    MuiCard: {
+      styleOverrides: {
+        root: {
+          boxShadow: '0 1px 3px rgba(0, 0, 0, 0.3)',
+          borderRadius: 8,
+          backgroundColor: '#1E1E1E',
+        },
+      },
+    },
+    MuiAppBar: {
+      styleOverrides: {
+        root: {
+          backgroundColor: '#1E1E1E',
+          color: '#FFFFFF',
+        },
+      },
+    },
+  },
+})
+
+// Default export for backward compatibility
+export const theme = lightTheme
+
+// Function to get theme based on mode
+export const getTheme = (mode: 'light' | 'dark') => {
+  return mode === 'dark' ? darkTheme : lightTheme
+}
 

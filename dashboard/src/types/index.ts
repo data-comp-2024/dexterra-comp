@@ -92,6 +92,8 @@ export interface EmergencyEvent {
 export type EmergencyType =
   | 'overflowing_toilet'
   | 'bodily_fluids'
+  | 'poor_aim'
+  | 'just_too_much_poop'
   | 'slip_hazard'
   | 'odor_threshold_exceeded'
   | 'other'
@@ -169,5 +171,52 @@ export interface ActivityLogEntry {
   details: Record<string, unknown>
   beforeValues?: Record<string, unknown>
   afterValues?: Record<string, unknown>
+}
+
+// Section 6.4: Flight and Demand Forecast
+export interface Flight {
+  id: string
+  airline: string
+  flightNumber: string
+  gate: string
+  scheduledArrivalTime?: Date
+  scheduledDepartureTime?: Date
+  actualArrivalTime?: Date
+  actualDepartureTime?: Date
+  passengers: number
+  aircraftType: string
+  status: FlightStatus
+  changes?: FlightChange[]
+  impactOnDemand?: string // Description of demand impact
+}
+
+export type FlightStatus = 'scheduled' | 'delayed' | 'cancelled' | 'boarding' | 'departed' | 'arrived'
+
+export interface FlightChange {
+  type: 'delay' | 'cancellation' | 'gate_change'
+  originalValue?: string | Date
+  newValue?: string | Date
+  detectedAt: Date
+  impactDescription?: string
+}
+
+export interface DemandForecast {
+  timestamp: Date
+  terminal?: string
+  concourse?: string
+  washroomType?: WashroomType
+  predictedDemand: number // Predicted cleaning tasks needed
+  confidence?: number // 0-1
+}
+
+export interface RiskForecast {
+  area: string // Terminal, zone, or washroom ID
+  timeWindow: {
+    start: Date
+    end: Date
+  }
+  riskLevel: 'low' | 'medium' | 'high'
+  headwayBreachProbability?: number // 0-1
+  happyScoreBelowThresholdProbability?: number // 0-1
 }
 

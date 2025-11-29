@@ -1,3 +1,5 @@
-// Data service layer will be implemented in Phase 1
-export {}
+// Data service exports
+export * from './dataService'
+export * from './mockData'
+export * from './dataTransform'
 

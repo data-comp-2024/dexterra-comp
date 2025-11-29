@@ -1,0 +1,528 @@
+/**
+ * Data Service Layer
+ * Handles loading and parsing data from various sources
+ */
+
+import Papa from 'papaparse'
+import * as XLSX from 'xlsx'
+import {
+  Washroom,
+  Task,
+  Crew,
+  EmergencyEvent,
+  HappyScore,
+  Headway,
+  Flight,
+  DemandForecast,
+  RiskForecast,
+  ActivityLogEntry,
+} from '../types'
+import { DATA_ROOT } from '../constants'
+import {
+  generateMockWashrooms,
+  generateMockTasks,
+  generateMockCrew,
+  generateMockEmergencyEvents,
+  generateMockHappyScores,
+  generateMockFlights,
+  generateMockDemandForecast,
+  generateMockRiskForecast,
+  generateMockActivityLog,
+} from './mockData'
+import { normalizeWashroomId, validateWashroom, mapKioskPathToWashroomId } from './dataNormalization'
+
+// Raw data types from files
+export interface GatesWashroomsRow {
+  name: string
+  x: number
+  y: number
+  z: number
+}
+
+export interface SimulationData {
+  metadata: {
+    date: string
+    export_timestamp: string
+    num_bathrooms: number
+  }
+  bathrooms: Record<
+    string,
+    {
+      summary: {
+        total_users: number
+        avg_wait_minutes: number
+        max_wait_minutes: number
+        avg_service_minutes: number
+        max_queue_length: number
+      }
+      passengers: Array<{
+        entry_time: string
+        arrival_bath_time: string
+        start_service: string
+        finish_service: string
+        wait_minutes: number
+        service_minutes: number
+        is_male: boolean
+        origin: string
+        destination: string
+      }>
+      queue_times?: Array<{
+        time: string
+        queue_length: number
+      }>
+    }
+  >
+}
+
+/**
+ * Load washrooms from gates_washrooms.csv
+ */
+export async function loadWashrooms(): Promise<Washroom[]> {
+  try {
+    // Try multiple possible paths
+    const possiblePaths = [
+      `${DATA_ROOT}/gates_washrooms.csv`,
+      '../maps/gates_washrooms.csv',
+      './maps/gates_washrooms.csv',
+    ]
+
+    let text: string | null = null
+    let lastError: Error | null = null
+
+    for (const csvPath of possiblePaths) {
+      try {
+        const response = await fetch(csvPath)
+        if (response.ok) {
+          text = await response.text()
+          break
+        }
+      } catch (error) {
+        lastError = error as Error
+        continue
+      }
+    }
+
+    if (!text) {
+      throw lastError || new Error('Could not find gates_washrooms.csv')
+    }
+
+    return new Promise((resolve, reject) => {
+      Papa.parse<GatesWashroomsRow>(text, {
+        header: true,
+        skipEmptyLines: true,
+        dynamicTyping: true,
+        transformHeader: (header) => header.trim(), // Trim whitespace from headers
+        transform: (value) => value.trim(), // Trim whitespace from values
+        complete: (results) => {
+          // Log warnings but don't fail if there are some parsing issues
+          if (results.errors.length > 0) {
+            console.warn('CSV parsing warnings:', results.errors)
+          }
+
+          // Check if we have valid data rows
+          if (!results.data || results.data.length === 0) {
+            console.warn('No washroom data rows in CSV, using mock data')
+            resolve(generateMockWashrooms())
+            return
+          }
+
+          const washrooms: Washroom[] = results.data
+            .filter((row) => {
+              // More lenient filtering - check if row exists and has required fields
+              if (!row) return false
+              const name = String(row.name || '').trim()
+              const x = row.x
+              const y = row.y
+              // Allow numeric gate names or terminal-based names
+              return name.length > 0 && x != null && y != null && !isNaN(Number(x)) && !isNaN(Number(y))
+            })
+            .map((row) => {
+              const name = String(row.name || '').trim()
+              const terminal = extractTerminal(name)
+              // For numeric gate names, create a more descriptive name
+              const displayName = /^\d+$/.test(name) 
+                ? `Gate ${name}` 
+                : name
+              
+              return {
+                id: name,
+                name: displayName,
+                terminal,
+                type: inferWashroomType(name),
+                coordinates: {
+                  x: Number(row.x),
+                  y: Number(row.y),
+                  z: Number(row.z) || 0,
+                },
+                status: 'active' as const,
+                sla: {
+                  maxHeadwayMinutes: 45,
+                  emergencyResponseTargetMinutes: 10,
+                },
+                happyScoreThreshold: 85,
+              }
+            })
+
+          if (washrooms.length === 0) {
+            console.warn('No valid washroom data found in CSV after filtering, using mock data')
+            resolve(generateMockWashrooms())
+            return
+          }
+
+          console.log(`Loaded ${washrooms.length} washrooms from CSV`)
+          resolve(washrooms)
+        },
+        error: (error) => {
+          console.warn('CSV parsing error, using mock data:', error)
+          resolve(generateMockWashrooms())
+        },
+      })
+    })
+  } catch (error) {
+    console.warn('Failed to load washrooms from CSV, using mock data:', error)
+    return generateMockWashrooms()
+  }
+}
+
+/**
+ * Load simulation data from multi_od_results JSON
+ */
+export async function loadSimulationData(
+  date: string = '2024-01-01'
+): Promise<SimulationData | null> {
+  try {
+    // Try local file first (in dashboard directory)
+    let jsonPath = `multi_od_results_${date}.json`
+    let response = await fetch(jsonPath)
+
+    // If not found, try DATA_ROOT
+    if (!response.ok) {
+      jsonPath = `${DATA_ROOT}/multi_od_results_${date}.json`
+      response = await fetch(jsonPath)
+    }
+
+    if (!response.ok) {
+      console.warn(`Simulation data not found for date ${date}`)
+      return null
+    }
+
+    const data = await response.json()
+    return data as SimulationData
+  } catch (error) {
+    console.warn('Failed to load simulation data:', error)
+    return null
+  }
+}
+
+/**
+ * Load Happy Score data from Happy or Not CSV
+ * Format: Semicolon-delimited CSV with feedback events
+ */
+export async function loadHappyScoreData(washrooms: Washroom[] = []): Promise<HappyScore[]> {
+  try {
+    const possiblePaths = [
+      `${DATA_ROOT}/Happy or Not 2024/Happy or Not Combined Data 2024.csv`,
+      '../Happy or Not 2024/Happy or Not Combined Data 2024.csv',
+      './Happy or Not 2024/Happy or Not Combined Data 2024.csv',
+    ]
+
+    let text: string | null = null
+    for (const csvPath of possiblePaths) {
+      try {
+        const response = await fetch(csvPath)
+        if (response.ok) {
+          text = await response.text()
+          break
+        }
+      } catch (error) {
+        continue
+      }
+    }
+
+    if (!text) {
+      console.log('Happy Score CSV not found, using mock data')
+      return generateMockHappyScores()
+    }
+
+    return new Promise((resolve) => {
+      // Parse semicolon-delimited CSV
+      Papa.parse(text, {
+        header: true,
+        delimiter: ';', // Semicolon delimiter
+        skipEmptyLines: true,
+        dynamicTyping: false, // Keep as strings for flexible parsing
+        transformHeader: (header) => header.trim().toLowerCase(),
+        complete: (results) => {
+          if (results.errors.length > 0) {
+            console.warn('Happy Score CSV parsing warnings:', results.errors.slice(0, 5))
+          }
+
+          if (!results.data || results.data.length === 0) {
+            console.log('No Happy Score data in CSV, using mock data')
+            resolve(generateMockHappyScores())
+            return
+          }
+
+          const happyScores: HappyScore[] = []
+          const washroomIdMap = new Map<string, string>() // Map kiosk paths to washroom IDs
+
+          // Process each feedback event
+          results.data.forEach((row: any, index: number) => {
+            try {
+              // Filter out spam/profanity/harmful flags
+              if (row.spam === 'true' || row.profanity === 'true' || row.harmful === 'true') {
+                return
+              }
+
+              // Extract location/path and map to washroom ID
+              const path = String(row.path || '').trim()
+              if (!path) return
+
+              // Try to extract washroom ID from path using normalization
+              let washroomId = washroomIdMap.get(path)
+              if (!washroomId) {
+                // Use normalization utility if washrooms are available
+                if (washrooms.length > 0) {
+                  const mappedId = mapKioskPathToWashroomId(path, washrooms)
+                  if (mappedId) {
+                    washroomId = mappedId
+                  } else {
+                    // Fallback: try to extract gate number
+                    const gateMatch = path.match(/gate\s*(\d+)/i)
+                    if (gateMatch) {
+                      const gateNum = gateMatch[1]
+                      washroomId = `T1-${gateNum}-MEN`
+                    } else {
+                      washroomId = path.replace(/\s+/g, '-').toUpperCase()
+                    }
+                  }
+                } else {
+                  // Fallback when washrooms not loaded yet
+                  const gateMatch = path.match(/gate\s*(\d+)/i)
+                  if (gateMatch) {
+                    const gateNum = gateMatch[1]
+                    washroomId = `T1-${gateNum}-MEN`
+                  } else {
+                    washroomId = path.replace(/\s+/g, '-').toUpperCase()
+                  }
+                }
+                washroomIdMap.set(path, washroomId)
+              }
+
+              // Parse timestamp (try UTC or local timestamp)
+              const timestampStr = row.utc_timestamp || row.local_timestamp || row.timestamp || row.time
+              if (!timestampStr) return
+
+              let timestamp: Date
+              try {
+                timestamp = new Date(timestampStr)
+                if (isNaN(timestamp.getTime())) return
+              } catch {
+                return
+              }
+
+              // Parse response (feedback scale 1-4, convert to 0-100)
+              const response = parseInt(String(row.response || row.feedback || '0'), 10)
+              if (isNaN(response) || response < 1 || response > 4) return
+
+              // Convert 1-4 scale to 0-100 scale
+              // 1 = very unhappy (0-25), 2 = unhappy (25-50), 3 = happy (50-75), 4 = very happy (75-100)
+              const score = ((response - 1) / 3) * 100
+
+              happyScores.push({
+                washroomId,
+                score: Math.round(score),
+                timestamp,
+                source: 'feedback',
+                windowMinutes: 15,
+              })
+            } catch (error) {
+              // Skip malformed rows
+              if (index < 10) {
+                console.warn(`Skipping malformed Happy Score row ${index}:`, error)
+              }
+            }
+          })
+
+          if (happyScores.length === 0) {
+            console.log('No valid Happy Score data after filtering, using mock data')
+            resolve(generateMockHappyScores())
+            return
+          }
+
+          console.log(`Loaded ${happyScores.length} Happy Score entries from CSV`)
+          resolve(happyScores)
+        },
+        error: (error) => {
+          console.warn('Happy Score CSV parsing error, using mock data:', error)
+          resolve(generateMockHappyScores())
+        },
+      })
+    })
+  } catch (error) {
+    console.warn('Failed to load Happy Score data, using mock data:', error)
+    return generateMockHappyScores()
+  }
+}
+
+/**
+ * Load tasks from lighthouse.io Tasks data
+ */
+export async function loadTasks(): Promise<Task[]> {
+  try {
+    // Try to load from lighthouse.io Tasks Excel files
+    // This is a placeholder - actual implementation would parse Excel files
+    const tasksPath = `${DATA_ROOT}/lighthouse.io/Tasks 2024/`
+    
+    // For now, return mock data
+    // Full implementation would:
+    // 1. List Excel files in the directory
+    // 2. Parse each Excel file using XLSX library
+    // 3. Transform rows to Task objects
+    // 4. Map location keys to washroom IDs
+    
+    return generateMockTasks()
+  } catch (error) {
+    console.warn('Failed to load tasks, using mock data:', error)
+    return generateMockTasks()
+  }
+}
+
+/**
+ * Load crew data
+ */
+export async function loadCrewData(): Promise<Crew[]> {
+  try {
+    // Crew data might come from lighthouse.io Events or a separate source
+    // For now, return mock data
+    return generateMockCrew()
+  } catch (error) {
+    console.warn('Failed to load crew data, using mock data:', error)
+    return generateMockCrew()
+  }
+}
+
+/**
+ * Load emergency events
+ */
+export async function loadEmergencyEvents(): Promise<EmergencyEvent[]> {
+  try {
+    // Emergency events might come from lighthouse.io Issues or sensors
+    // Load washrooms and crew first to generate proper mock data
+    const washrooms = await loadWashrooms()
+    const crew = await loadCrewData()
+    const washroomIds = washrooms.map((w) => w.id)
+    const crewIds = crew.map((c) => c.id)
+    return generateMockEmergencyEvents(washroomIds, crewIds, 20)
+  } catch (error) {
+    console.warn('Failed to load emergency events, using mock data:', error)
+    // Fallback: generate with empty arrays (will still create events)
+    return generateMockEmergencyEvents([], [], 20)
+  }
+}
+
+/**
+ * Load flights from flight schedule data
+ */
+export async function loadFlights(): Promise<Flight[]> {
+  try {
+    // TODO: Load from actual flight schedule files when available
+    // For now, return mock data
+    console.log('Loading flights - using mock data')
+    return generateMockFlights(30)
+  } catch (error) {
+    console.warn('Failed to load flights, using mock data:', error)
+    return generateMockFlights(30)
+  }
+}
+
+/**
+ * Generate demand forecast based on flights and washrooms
+ */
+export async function loadDemandForecast(
+  washrooms: Washroom[],
+  hoursAhead: number = 12
+): Promise<DemandForecast[]> {
+  try {
+    // TODO: Generate from actual flight data and demand models
+    return generateMockDemandForecast(washrooms, hoursAhead)
+  } catch (error) {
+    console.warn('Failed to generate demand forecast, using mock data:', error)
+    return generateMockDemandForecast(washrooms, hoursAhead)
+  }
+}
+
+/**
+ * Generate risk forecast based on current state
+ */
+export async function loadRiskForecast(
+  washrooms: Washroom[],
+  hoursAhead: number = 12
+): Promise<RiskForecast[]> {
+  try {
+    // TODO: Generate from actual risk models
+    return generateMockRiskForecast(washrooms, hoursAhead)
+  } catch (error) {
+    console.warn('Failed to generate risk forecast, using mock data:', error)
+    return generateMockRiskForecast(washrooms, hoursAhead)
+  }
+}
+
+/**
+ * Load activity log entries
+ */
+export async function loadActivityLog(): Promise<ActivityLogEntry[]> {
+  try {
+    // TODO: Load from actual activity log API/database
+    console.log('Loading activity log - using mock data')
+    return generateMockActivityLog(100)
+  } catch (error) {
+    console.warn('Failed to load activity log, using mock data:', error)
+    return generateMockActivityLog(100)
+  }
+}
+
+// Helper functions
+
+function extractTerminal(name: string): string {
+  // Extract terminal from name (e.g., "T1-134-MEN" -> "T1")
+  // For numeric gate names (e.g., "171"), default to T1
+  const match = name.match(/^T(\d+)/i)
+  if (match) {
+    return `T${match[1]}`
+  }
+  // If it's just a number, assume T1 (most common terminal)
+  if (/^\d+$/.test(name.trim())) {
+    return 'T1'
+  }
+  return 'Unknown'
+}
+
+function inferWashroomType(name: string): Washroom['type'] {
+  const lower = name.toLowerCase()
+  if (lower.includes('family')) return 'family'
+  if (lower.includes('accessible') || lower.includes('access')) return 'accessible'
+  if (lower.includes('staff')) return 'staff-only'
+  return 'standard'
+}
+
+function mapKioskToWashroomId(path: string): string {
+  // Map kiosk path to washroom ID
+  // This is a simplified mapping - full implementation would need proper mapping
+  const match = path.match(/Gate\s*(\d+)/i)
+  if (match) {
+    return `T1-${match[1]}-MEN` // Simplified assumption
+  }
+  return 'unknown'
+}
+
+function convertResponseToScore(response: number | string): number {
+  // Convert 1-4 scale to 0-100 scale
+  // Assuming 1 = very unhappy, 4 = very happy
+  const num = typeof response === 'string' ? parseInt(response, 10) : response
+  if (isNaN(num) || num < 1 || num > 4) return 50 // Default to neutral
+  
+  // Map 1-4 to 0-100
+  return ((num - 1) / 3) * 100
+}
+

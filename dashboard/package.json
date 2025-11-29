@@ -23,6 +23,7 @@
     "recharts": "^2.12.7",
     "date-fns": "^3.6.0",
     "axios": "^1.7.2",
+    "@mui/x-date-pickers": "^7.0.0",
     "papaparse": "^5.4.1",
     "xlsx": "^0.18.5"
   },
