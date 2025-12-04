@@ -314,11 +314,11 @@ def build_dataset(resampling_period: str,
     # --- 2.2. Percentage happy per washroom over time ---
 
     hourly_values = (
-        happy_or_not_filtered
-        .set_index(happy_or_not[LOCAL_DATETIME_COL])
-        .resample(resampling_period)[['response_binary', 'washroom_code']]
-        .value_counts()
-        .unstack()
+    happy_or_not_filtered
+    .set_index(LOCAL_DATETIME_COL)
+    .resample(resampling_period)[['response_binary', 'washroom_code']]
+    .value_counts()
+    .unstack()
     )
 
     # Unstack to have MultiIndex columns: outer (washroom_code), inner (response_binary)
