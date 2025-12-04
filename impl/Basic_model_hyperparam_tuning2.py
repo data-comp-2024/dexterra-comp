@@ -3,7 +3,6 @@ import csv
 import json
 import yaml
 import joblib
-import argparse
 import numpy as np
 import pandas as pd
 
@@ -14,35 +13,13 @@ from sklearn.model_selection import RandomizedSearchCV, TimeSeriesSplit
 from sklearn.metrics import mean_squared_error, r2_score
 
 # ============================================================
-# Parse command-line arguments
-# ============================================================
-
-parser = argparse.ArgumentParser(description="Hyperparameter tuning model")
-parser.add_argument(
-    "--data_folder",
-    type=str,
-    required=True,
-    help="Path to the root data folder"
-)
-args = parser.parse_args()
-
-DATA_ROOT = args.data_folder
-
-# ============================================================
 # 1. LOAD RAW DATA (one time only)
 # ============================================================
 
 # --- Happy or Not data ---
 
-happy_path = os.path.join(
-    DATA_ROOT,
-    "OneDrive_2025-11-03 (1)",
-    "Happy or Not 2024",
-    "Happy or Not Combined Data 2024.csv"
-)
-
 happy_or_not = pd.read_csv(
-    happy_path,
+    r"C:\Users\mwendwa.kiko\Documents\Personal_Kiko\Dexterra Competition\Data\OneDrive_2025-11-03 (1)\Happy or Not 2024\Happy or Not Combined Data 2024.csv",
     sep=';',
     engine='python',           # more tolerant than the default C engine
     quoting=csv.QUOTE_NONE,    # don't treat quotes as special
@@ -100,13 +77,12 @@ happy_or_not_filtered = happy_or_not[happy_or_not['zone'].isin(zones_interest)]
 
 # --- Tasks data ---
 
-root_folder = os.path.join(DATA_ROOT, 'lighthouse.io', 'lighthouse.io')
+root_folder = r'C:\Users\mwendwa.kiko\Documents\Personal_Kiko\Dexterra Competition\Data\lighthouse.io\lighthouse.io'
 
 all_files = []
-tasks_2024_folder = os.path.join(root_folder, 'Tasks 2024')
-for file in os.listdir(tasks_2024_folder):
+for file in os.listdir(os.path.join(root_folder, 'Tasks 2024')):
     if file.endswith('.xlsx'):
-        all_files.append(pd.read_excel(os.path.join(tasks_2024_folder, file)))
+        all_files.append(pd.read_excel(os.path.join(root_folder, 'Tasks 2024', file)))
 tasks = pd.concat(all_files, ignore_index=True)
 
 tasks_washroom = tasks.loc[tasks['Title'] == 'Washroom Checklist'].copy()
@@ -146,17 +122,12 @@ tasks_washroom_filtered_merged['Name_or_other'] = np.where(
 
 # --- Flight info data ---
 
-flight_info_path = os.path.join(
-    DATA_ROOT,
-    'OneDrive_2025-11-03',
-    'GTAA flights arrival departure data 2024',
-    'Pax info YYZ.xlsx'
+flight_info = pd.read_excel(
+    r'C:\Users\mwendwa.kiko\Documents\Personal_Kiko\Dexterra Competition\Data\OneDrive_2025-11-03\GTAA flights arrival departure data 2024\Pax info YYZ.xlsx'
 )
-flight_info = pd.read_excel(flight_info_path)
 flight_info['Arr Gate'] = flight_info['Arr Gate'].astype(str)
 
-airport_gates_path = os.path.join(DATA_ROOT, 'airport_gates2.yml')
-with open(airport_gates_path, 'r') as file:
+with open(r'airport_gates2.yml', 'r') as file:
     airport_gates = yaml.safe_load(file)
 
 zone_mapping = {}
@@ -169,8 +140,7 @@ flight_info['Arr Actual Arrival Time'] = pd.to_datetime(flight_info['Arr Actual 
 
 # --- Coordinates and distance tables ---
 
-coordinates_path = os.path.join(DATA_ROOT, 'gates_washrooms.csv')
-coordinates = pd.read_csv(coordinates_path)
+coordinates = pd.read_csv('gates_washrooms.csv')
 
 # Centering coordinates (as in original)
 centroid = coordinates[['x', 'y']].mean()
@@ -189,14 +159,7 @@ distances_df = pd.DataFrame(
 distances_df = distances_df.rename(columns={'level_0': 'gate_name', 'level_1': 'washroom_name'})
 
 # Path distances
-path_distances_path = os.path.join(
-    DATA_ROOT,
-    'full_repo',
-    'dexterra-comp',
-    'maps',
-    'gate_shortest_paths.csv'
-)
-path_distances = pd.read_csv(path_distances_path)
+path_distances = pd.read_csv('./full_repo/dexterra-comp/maps/gate_shortest_paths.csv')
 path_distances[['origin_label', 'dest_label']] = path_distances[['origin_label', 'dest_label']].apply(
     lambda x: x.str.replace('gate_', '')
 )
@@ -219,8 +182,7 @@ path_distances = path_distances[
 
 # --- Downstream washrooms filter (apply to both distance tables) ---
 
-downstream_path = os.path.join(DATA_ROOT, 'downstream_washrooms.xlsx')
-downstream_washrooms = pd.read_excel(downstream_path)
+downstream_washrooms = pd.read_excel('downstream_washrooms.xlsx')
 downstream_washrooms['Downstream_washrooms'] = downstream_washrooms['Downstream_washrooms'].apply(
     lambda x: [item.strip() for item in str(x).split(',')]
 )
@@ -262,13 +224,9 @@ DISTANCE_TABLES = {
 
 # --- Avg wait times JSON (global raw DF, to be resampled per dataset) ---
 
-wait_json_path = os.path.join(
-    DATA_ROOT,
-    'OneDrive_2025-11-03',
-    'GTAA flights arrival departure data 2024',
-    'all_wait_times.json'
-)
-demand_json = json.load(open(wait_json_path))
+demand_json = json.load(open(
+    r'C:\Users\mwendwa.kiko\Documents\Personal_Kiko\Dexterra Competition\Data\OneDrive_2025-11-03\GTAA flights arrival departure data 2024\all_wait_times.json'
+))
 
 wait_rows = []
 for date_str, bathrooms in demand_json.items():
@@ -289,105 +247,42 @@ LOCAL_DATETIME_COL = "local_datetime"                    # second datetime colum
 
 
 # ============================================================
-# HELPER: time-of-day segments
-# ============================================================
-
-def get_segment_from_hour(hour: int) -> str:
-    """
-    Map hour of day (0-23) to a time-of-day segment:
-    - 7 <= h < 15  -> '7_15'   (7am–3pm)
-    - 15 <= h < 21 -> '15_21'  (3pm–9pm)
-    - else         -> '21_7'   (9pm–7am)
-    """
-    if 7 <= hour < 15:
-        return '7_15'
-    elif 15 <= hour < 21:
-        return '15_21'
-    else:
-        return '21_7'
-
-
-# ============================================================
 # 2. FUNCTION TO BUILD FEATURES FOR GIVEN DATASET HYPERPARAMS
 # ============================================================
 
-def build_dataset(
-    resampling_period_7_15: str,
-    resampling_period_15_21: str,
-    resampling_period_21_7: str,
-    decay_param: float,
-    distance_source: str
-) -> tuple[pd.DataFrame, pd.Series]:
+def build_dataset(resampling_period: str,
+                  decay_param: float,
+                  distance_source: str) -> tuple[pd.DataFrame, pd.Series]:
     """
     Build the modeling dataset (X, y) for given:
-    - resampling_period_7_15: resampling for 07:00–15:00
-    - resampling_period_15_21: resampling for 15:00–21:00
-    - resampling_period_21_7:  resampling for 21:00–07:00
+    - resampling_period: e.g. '1H', '2H', '4H', '8H', '12H', '24H'
     - decay_param: exponential distance decay parameter
     - distance_source: 'path' or 'euclidean'
     """
 
-    segment_periods = {
-        '7_15': resampling_period_7_15,
-        '15_21': resampling_period_15_21,
-        '21_7': resampling_period_21_7
-    }
-
     # --- 2.1. Number of Happy or Not ratings per (time, washroom) ---
 
-    hon_for_counts = happy_or_not_filtered.copy()
-    hon_for_counts['segment'] = hon_for_counts[UTC_DATETIME_COL].dt.hour.apply(get_segment_from_hour)
-
-    count_frames = []
-    for seg_key, freq in segment_periods.items():
-        seg_df = hon_for_counts[hon_for_counts['segment'] == seg_key].copy()
-        if seg_df.empty:
-            continue
-        seg_counts = (
-            seg_df
-            .set_index(UTC_DATETIME_COL)
-            .groupby('washroom_code')
-            .resample(freq)
-            .size()
-            .rename("count")
-            .reset_index()
-        )
-        count_frames.append(seg_counts)
-
-    if count_frames:
-        number_of_hourly_ratings = pd.concat(count_frames, ignore_index=True)
-    else:
-        number_of_hourly_ratings = pd.DataFrame(columns=[UTC_DATETIME_COL, 'washroom_code', 'count'])
+    number_of_hourly_ratings = (
+        happy_or_not_filtered
+        .set_index(UTC_DATETIME_COL)
+        .groupby('washroom_code')
+        .resample(resampling_period)
+        .size()
+        .rename("count")
+        .reset_index()
+    )
 
     # --- 2.2. Percentage happy per washroom over time ---
 
-    hon_for_ph = happy_or_not_filtered.copy()
-    hon_for_ph['segment'] = hon_for_ph[LOCAL_DATETIME_COL].dt.hour.apply(get_segment_from_hour)
-
-    hourly_values_frames = []
-    for seg_key, freq in segment_periods.items():
-        seg_df = hon_for_ph[hon_for_ph['segment'] == seg_key].copy()
-        if seg_df.empty:
-            continue
-        seg_values = (
-            seg_df
-            .set_index(seg_df[LOCAL_DATETIME_COL])
-            .resample(freq)[['response_binary', 'washroom_code']]
-            .value_counts()
-        )
-        hourly_values_frames.append(seg_values)
-
-    if hourly_values_frames:
-        hourly_values = pd.concat(hourly_values_frames).sort_index()
-    else:
-        hourly_values = pd.Series(dtype='int64')
-
-    # If empty, bail early
-    if hourly_values.empty:
-        return pd.DataFrame(), pd.Series(dtype=float)
+    hourly_values = (
+        happy_or_not_filtered
+        .set_index(happy_or_not_filtered[LOCAL_DATETIME_COL])
+        .resample(resampling_period)[['response_binary', 'washroom_code']]
+        .value_counts()
+        .unstack()
+    )
 
     # Unstack to have MultiIndex columns: outer (washroom_code), inner (response_binary)
-    hourly_values = hourly_values.unstack()
     hourly_values_unstacked = hourly_values.unstack()
 
     # Compute percentage happy per washroom
@@ -396,6 +291,7 @@ def build_dataset(
 
     for col in outer_cols:
         if (col, 1.0) not in hourly_values_unstacked.columns:
+            # If there are no "happy=1" entries for this washroom, set 0 numerator
             num = pd.Series(0.0, index=hourly_values_unstacked.index)
         else:
             num = hourly_values_unstacked[(col, 1.0)]
@@ -410,30 +306,18 @@ def build_dataset(
     )
     percentage_happy = percentage_happy.fillna(percentage_happy.median())
 
-    # --- 2.3. Tasks per washroom / staff (segment-wise resampling) ---
+    # --- 2.3. Tasks per washroom / staff ---
 
-    tasks_for_staff = tasks_washroom_filtered_merged.copy()
-    tasks_for_staff['segment'] = tasks_for_staff['DateTime'].dt.hour.apply(get_segment_from_hour)
+    washrooms_hourly = (
+        tasks_washroom_filtered_merged
+        .set_index('DateTime')
+        .resample(resampling_period)[['washroom_code', 'Name_or_other']]
+        .value_counts()
+        .unstack()
+    )
 
-    staff_frames = []
-    for seg_key, freq in segment_periods.items():
-        seg_df = tasks_for_staff[tasks_for_staff['segment'] == seg_key].copy()
-        if seg_df.empty:
-            continue
-        seg_washrooms = (
-            seg_df
-            .set_index('DateTime')
-            .resample(freq)[['washroom_code', 'Name_or_other']]
-            .value_counts()
-        )
-        staff_frames.append(seg_washrooms)
-
-    if staff_frames:
-        washrooms_hourly = pd.concat(staff_frames).sort_index()
-    else:
-        washrooms_hourly = pd.Series(dtype='int64')
-
-    washrooms_hourly_unstacked = washrooms_hourly.unstack().unstack()
+    # Flatten multi-index columns
+    washrooms_hourly_unstacked = washrooms_hourly.unstack()
     washrooms_hourly_unstacked.columns = [
         f"{col[0]}_{col[1]}" for col in washrooms_hourly_unstacked.columns
     ]
@@ -474,32 +358,17 @@ def build_dataset(
         how='inner'
     )
 
-    # --- 2.5. Flight arrivals aggregated by gate and time (segment-wise) ---
+    # --- 2.5. Flight arrivals aggregated by gate and time ---
 
-    flights_for_arrivals = flight_info.copy()
-    flights_for_arrivals['segment'] = flights_for_arrivals['Arr Actual Arrival Time'].dt.hour.apply(get_segment_from_hour)
-
-    flight_frames = []
-    for seg_key, freq in segment_periods.items():
-        seg_df = flights_for_arrivals[flights_for_arrivals['segment'] == seg_key].copy()
-        if seg_df.empty:
-            continue
-        seg_hourly_arrivals = (
-            seg_df
-            .set_index('Arr Actual Arrival Time')
-            .groupby('Arr Gate')['Arr Pax']
-            .resample(freq)
-            .sum()
-        )
-        flight_frames.append(seg_hourly_arrivals)
-
-    if flight_frames:
-        hourly_arrivals = pd.concat(flight_frames).unstack('Arr Gate').fillna(0).sort_index()
-    else:
-        hourly_arrivals = pd.DataFrame()
-
-    if hourly_arrivals.empty:
-        return pd.DataFrame(), pd.Series(dtype=float)
+    hourly_arrivals = (
+        flight_info
+        .set_index('Arr Actual Arrival Time')
+        .groupby('Arr Gate')['Arr Pax']
+        .resample(resampling_period)
+        .sum()
+        .unstack('Arr Gate')
+        .fillna(0)
+    )
 
     hourly_arrivals_stacked = hourly_arrivals.stack().to_frame('arrivals').reset_index()
     # Columns: ['Arr Actual Arrival Time', 'Arr Gate', 'arrivals']
@@ -540,28 +409,14 @@ def build_dataset(
         how='inner'
     )
 
-    # Task counts per (time, washroom) without staff names (segment-wise)
-
-    tasks_for_counts = tasks_washroom_filtered_merged.copy()
-    tasks_for_counts['segment'] = tasks_for_counts['DateTime'].dt.hour.apply(get_segment_from_hour)
-
-    counts_frames = []
-    for seg_key, freq in segment_periods.items():
-        seg_df = tasks_for_counts[tasks_for_counts['segment'] == seg_key].copy()
-        if seg_df.empty:
-            continue
-        seg_counts = (
-            seg_df
-            .set_index('DateTime')
-            .resample(freq)['washroom_code']
-            .value_counts()
-        )
-        counts_frames.append(seg_counts)
-
-    if counts_frames:
-        washrooms_hourly_no_names = pd.concat(counts_frames).unstack()
-    else:
-        washrooms_hourly_no_names = pd.DataFrame()
+    # Task counts per (time, washroom) without staff names
+    washrooms_hourly_no_names = (
+        tasks_washroom_filtered_merged
+        .set_index('DateTime')
+        .resample(resampling_period)['washroom_code']
+        .value_counts()
+        .unstack()
+    )
 
     washrooms_hourly_no_names_stacked = (
         washrooms_hourly_no_names
@@ -589,36 +444,20 @@ def build_dataset(
         )
     )
 
-    # --- 2.8. Avg wait times: segment-wise resample and merge ---
+    # --- 2.8. Avg wait times: resample to resampling_period and merge ---
 
-    wait_for_resample = df_wait_raw.copy()
-    wait_for_resample['segment'] = wait_for_resample['datetime'].dt.hour.apply(get_segment_from_hour)
+    df_wide = (
+        df_wait_raw
+        .pivot(index="datetime", columns="washroom", values="avg_wait_minutes")
+        .sort_index()
+    )
 
-    wait_frames = []
-    for seg_key, freq in segment_periods.items():
-        seg_df = wait_for_resample[wait_for_resample['segment'] == seg_key].copy()
-        if seg_df.empty:
-            continue
-        seg_wide = (
-            seg_df
-            .pivot(index='datetime', columns='washroom', values='avg_wait_minutes')
-            .sort_index()
-        )
-        seg_wide_resampled = (
-            seg_wide
-            .resample(freq)
-            .mean()
-            .interpolate(method='linear', limit_direction='both')
-        )
-        wait_frames.append(seg_wide_resampled)
-
-    if wait_frames:
-        df_wide_resampled = pd.concat(wait_frames).sort_index()
-    else:
-        df_wide_resampled = pd.DataFrame()
-
-    if df_wide_resampled.empty:
-        return pd.DataFrame(), pd.Series(dtype=float)
+    df_wide_resampled = (
+        df_wide
+        .resample(resampling_period)
+        .mean()
+        .interpolate(method='linear', limit_direction='both')
+    )
 
     df_long_resampled = (
         df_wide_resampled
@@ -638,20 +477,13 @@ def build_dataset(
         )
     )
 
+ 
     # Hour of day feature
-    percentage_happy_tasks_flights_merged_decayed_ratings_waittimes['hour_of_day'] = (
-        percentage_happy_tasks_flights_merged_decayed_ratings_waittimes['DateTime'].dt.hour
-    )
+    percentage_happy_tasks_flights_merged_decayed_ratings_waittimes['hour_of_day'] = percentage_happy_tasks_flights_merged_decayed_ratings_waittimes['DateTime'].dt.hour
     # Day of week feature
-    percentage_happy_tasks_flights_merged_decayed_ratings_waittimes['day_of_week'] = (
-        percentage_happy_tasks_flights_merged_decayed_ratings_waittimes['DateTime'].dt.dayofweek
-    )
+    percentage_happy_tasks_flights_merged_decayed_ratings_waittimes['day_of_week'] = percentage_happy_tasks_flights_merged_decayed_ratings_waittimes['DateTime'].dt.dayofweek
     # Lagged score
-    percentage_happy_tasks_flights_merged_decayed_ratings_waittimes['lagged_score'] = (
-        percentage_happy_tasks_flights_merged_decayed_ratings_waittimes
-        .groupby('washroom_code')['percentage_happy']
-        .shift(1)
-    )
+    percentage_happy_tasks_flights_merged_decayed_ratings_waittimes['lagged_score'] = percentage_happy_tasks_flights_merged_decayed_ratings_waittimes.groupby('washroom_code')['percentage_happy'].shift(1)
 
     # --- 2.9. Final X, y for modeling (ensure chronological order) ---
 
@@ -671,8 +503,7 @@ def build_dataset(
         'delayed_arrivals',
         'count',
         'is_weekend',
-        UTC_DATETIME_COL,
-        'segment'  # if any segment column leaked through
+        UTC_DATETIME_COL
     ]
     drop_cols = [c for c in drop_cols if c in df_model.columns]
 
@@ -689,11 +520,7 @@ def build_dataset(
 if __name__ == "__main__":
 
     # Dataset-specific hyperparameters
-    # Now we have THREE independent resampling-period hyperparameters:
-    resampling_period_grid_7_15 = ['1H', '2H', '4H', '8H', '12H', '24H']
-    resampling_period_grid_15_21 = ['1H', '2H', '4H', '8H', '12H', '24H']
-    resampling_period_grid_21_7 = ['1H', '2H', '4H', '8H', '12H', '24H']
-
+    resampling_period_grid = ['1H', '2H', '4H', '8H', '12H', '24H']
     decay_param_grid = np.linspace(0.0, 0.5, 11)   # 0.00, 0.05, ..., 0.50
     distance_source_grid = ['path', 'euclidean']
 
@@ -718,107 +545,99 @@ if __name__ == "__main__":
     # You can reduce n_iters to keep runtime manageable
     n_iters_lgbm = 20
 
-    for resampling_period_7_15 in resampling_period_grid_7_15:
-        for resampling_period_15_21 in resampling_period_grid_15_21:
-            for resampling_period_21_7 in resampling_period_grid_21_7:
-                for distance_source in distance_source_grid:
-                    for decay_param in decay_param_grid:
+    for resampling_period in resampling_period_grid:
+        for distance_source in distance_source_grid:
+            for decay_param in decay_param_grid:
 
-                        print(
-                            f"\n=== Dataset config: "
-                            f"resampling_period_7_15={resampling_period_7_15}, "
-                            f"resampling_period_15_21={resampling_period_15_21}, "
-                            f"resampling_period_21_7={resampling_period_21_7}, "
-                            f"distance_source={distance_source}, "
-                            f"decay_param={decay_param:.3f} ==="
-                        )
+                print(
+                    f"\n=== Dataset config: "
+                    f"resampling_period={resampling_period}, "
+                    f"distance_source={distance_source}, "
+                    f"decay_param={decay_param:.3f} ==="
+                )
 
-                        # Build dataset for this config
-                        try:
-                            X, y = build_dataset(
-                                resampling_period_7_15=resampling_period_7_15,
-                                resampling_period_15_21=resampling_period_15_21,
-                                resampling_period_21_7=resampling_period_21_7,
-                                decay_param=decay_param,
-                                distance_source=distance_source
-                            )
-                        except Exception as e:
-                            print(f"Skipping config due to error during dataset build: {e}")
-                            continue
+                # Build dataset for this config
+                try:
+                    X, y = build_dataset(
+                        resampling_period=resampling_period,
+                        decay_param=decay_param,
+                        distance_source=distance_source
+                    )
+                except Exception as e:
+                    print(f"Skipping config due to error during dataset build: {e}")
+                    continue
 
-                        if X.empty or y.empty:
-                            print("Skipping config (empty X or y).")
-                            continue
+                if X.empty or y.empty:
+                    print("Skipping config (empty X or y).")
+                    continue
 
-                        # Ensure X and y are aligned and ordered in time (already sorted in build_dataset)
-                        n_samples = len(X)
-                        if n_samples < 10:
-                            print("Skipping config (too few samples for time series split).")
-                            continue
+                # Ensure X and y are aligned and ordered in time (already sorted in build_dataset)
+                n_samples = len(X)
+                if n_samples < 10:
+                    print("Skipping config (too few samples for time series split).")
+                    continue
 
-                        # Chronological train/test split: last 20% as held-out test set
-                        test_size = max(1, int(0.2 * n_samples))
+                # Chronological train/test split: last 20% as held-out test set
+                test_size = max(1, int(0.2 * n_samples))
 
-                        X_train = X.iloc[:-test_size, :]
-                        y_train = y.iloc[:-test_size]
-                        X_test = X.iloc[-test_size:, :]
-                        y_test = y.iloc[-test_size:]
+                X_train = X.iloc[:-test_size, :]
+                y_train = y.iloc[:-test_size]
+                X_test = X.iloc[-test_size:, :]
+                y_test = y.iloc[-test_size:]
 
-                        # TimeSeriesSplit for walk-forward CV on the training set (expanding window)
-                        tscv = TimeSeriesSplit(n_splits=3)
+                # TimeSeriesSplit for walk-forward CV on the training set (expanding window)
+                tscv = TimeSeriesSplit(n_splits=3)
 
-                        base_estimator = LGBMRegressor(
-                            objective='regression',
-                            random_state=42,
-                            n_jobs=-1
-                        )
+                base_estimator = LGBMRegressor(
+                    objective='regression',
+                    random_state=42,
+                    n_jobs=-1
+                )
 
-                        search = RandomizedSearchCV(
-                            estimator=base_estimator,
-                            param_distributions=lgbm_param_distributions,
-                            n_iter=n_iters_lgbm,
-                            scoring='r2',       # optimize R²
-                            cv=tscv,            # TimeSeriesSplit cross-validation
-                            random_state=42,
-                            n_jobs=-1,
-                            verbose=1
-                        )
+                search = RandomizedSearchCV(
+                    estimator=base_estimator,
+                    param_distributions=lgbm_param_distributions,
+                    n_iter=n_iters_lgbm,
+                    scoring='r2',       # optimize R²
+                    cv=tscv,            # TimeSeriesSplit cross-validation
+                    random_state=42,
+                    n_jobs=-1,
+                    verbose=1
+                )
 
-                        try:
-                            search.fit(X_train, y_train)
-                        except Exception as e:
-                            print(f"Skipping config due to error during tuning: {e}")
-                            continue
+                try:
+                    search.fit(X_train, y_train)
+                except Exception as e:
+                    print(f"Skipping config due to error during tuning: {e}")
+                    continue
 
-                        best_model_for_config = search.best_estimator_
-                        y_pred = best_model_for_config.predict(X_test)
+                best_model_for_config = search.best_estimator_
+                y_pred = best_model_for_config.predict(X_test)
 
-                        mse = mean_squared_error(y_test, y_pred)
-                        r2 = r2_score(y_test, y_pred)
+                mse = mean_squared_error(y_test, y_pred)
+                r2 = r2_score(y_test, y_pred)
 
-                        print(f"Config R2: {r2:.4f}, MSE: {mse:.4f}")
-                        print(f"Best CV R2 (TimeSeriesSplit) for this config: {search.best_score_:.4f}")
+                print(f"Config R2: {r2:.4f}, MSE: {mse:.4f}")
+                print(f"Best CV R2 (TimeSeriesSplit) for this config: {search.best_score_:.4f}")
 
-                        if r2 > best_overall_r2:
-                            best_overall_r2 = r2
-                            best_overall_mse = mse
+                if r2 > best_overall_r2:
+                    best_overall_r2 = r2
+                    best_overall_mse = mse
 
-                            # Record both model hyperparams and dataset hyperparams
-                            best_overall_params = {
-                                **search.best_params_,
-                                'resampling_period_7_15': resampling_period_7_15,
-                                'resampling_period_15_21': resampling_period_15_21,
-                                'resampling_period_21_7': resampling_period_21_7,
-                                'decay_param': float(decay_param),
-                                'distance_source': distance_source
-                            }
+                    # Record both model hyperparams and dataset hyperparams
+                    best_overall_params = {
+                        **search.best_params_,
+                        'resampling_period': resampling_period,
+                        'decay_param': float(decay_param),
+                        'distance_source': distance_source
+                    }
 
-                            best_overall_model = best_model_for_config
+                    best_overall_model = best_model_for_config
 
-                            print(">>> New best overall model found!")
-                            print(f"    Best R2:  {best_overall_r2:.4f}")
-                            print(f"    Best MSE: {best_overall_mse:.4f}")
-                            print(f"    Best params: {best_overall_params}")
+                    print(">>> New best overall model found!")
+                    print(f"    Best R2:  {best_overall_r2:.4f}")
+                    print(f"    Best MSE: {best_overall_mse:.4f}")
+                    print(f"    Best params: {best_overall_params}")
 
     # ========================================================
     # 4. SAVE BEST MODEL, HYPERPARAMS, AND SCORES
