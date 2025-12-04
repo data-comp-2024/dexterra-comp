@@ -170,7 +170,7 @@ flight_info_departures['zone'] = flight_info_departures['Dep Gate'].map(zone_map
 
 # --- Coordinates and distance tables ---
 
-coordinates = pd.read_csv('gates_washrooms.csv')
+coordinates = pd.read_csv(os.path.join(BASE, 'gates_washrooms.csv'))
 
 # Centering coordinates (as in original)
 centroid = coordinates[['x', 'y']].mean()
@@ -212,7 +212,7 @@ path_distances = path_distances[
 
 # --- Downstream washrooms filter (apply to both distance tables) ---
 
-downstream_washrooms = pd.read_excel('downstream_washrooms.xlsx')
+downstream_washrooms = pd.read_excel(os.path.join(BASE, 'downstream_washrooms.xlsx'))
 downstream_washrooms['Downstream_washrooms'] = downstream_washrooms['Downstream_washrooms'].apply(
     lambda x: [item.strip() for item in str(x).split(',')]
 )
