@@ -613,7 +613,7 @@ if __name__ == "__main__":
 
     # Dataset-specific hyperparameters
     resampling_period_grid = ['1H', '2H', '4H', '8H', '12H', '24H']
-    decay_param_grid = np.linspace(0.0, 0.5, 11)   # 0.00, 0.05, ..., 0.50
+    decay_param_grid = np.linspace(0.0, 0.03, 11)   # 0.00, 0.003, ..., 0.03
     distance_source_grid = ['path', 'euclidean']
 
     # LightGBM hyperparameter distributions (reasonable defaults; tweak as needed)
