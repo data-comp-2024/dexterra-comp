@@ -142,7 +142,7 @@ function IncomingDemandPanel() {
       <CardContent>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
           <Typography variant="h6" sx={{ fontWeight: 600 }}>
-            Incoming Demand
+            Events
           </Typography>
           <Box>
             <Button

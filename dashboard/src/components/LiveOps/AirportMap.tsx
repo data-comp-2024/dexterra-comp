@@ -294,7 +294,7 @@ function AirportMap() {
                       >
                         {washroom.terminal}
                         <br />
-                        {washroom.name.split(' ').pop()?.substring(0, 3)}
+                        {washroom.id.substring(0, 6)}
                       </Typography>
                     </Box>
                   </Tooltip>

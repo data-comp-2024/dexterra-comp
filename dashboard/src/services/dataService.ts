@@ -94,111 +94,48 @@ export interface SimulationData {
 }
 
 /**
- * Load washrooms from gates_washrooms.csv
+ * Load washrooms from bathroom.json catalog
  */
 export async function loadWashrooms(): Promise<Washroom[]> {
   try {
-    // Try multiple possible paths
-    const possiblePaths = [
-      `${DATA_ROOT}/gates_washrooms.csv`,
-      '../maps/gates_washrooms.csv',
-      './maps/gates_washrooms.csv',
-    ]
+    // Load from bathroom.json catalog
+    const catalog = await loadBathroomCatalog()
+    
+    if (catalog.length === 0) {
+      console.warn('No bathroom catalog data found, using mock data')
+      return generateMockWashrooms()
+    }
 
-    let text: string | null = null
-    let lastError: Error | null = null
-
-    for (const csvPath of possiblePaths) {
-      try {
-        const response = await fetch(csvPath)
-        if (response.ok) {
-          text = await response.text()
-          break
-        }
-      } catch (error) {
-        lastError = error as Error
-        continue
+    // Convert BathroomCatalogItem[] to Washroom[]
+    const washrooms: Washroom[] = catalog.map((bathroom) => {
+      // Use the bathroom ID as the name (as requested)
+      // Map gender to washroom type (Men/Women -> standard, could be enhanced)
+      const type: WashroomType = 'standard'
+      
+      return {
+        id: bathroom.id,
+        name: bathroom.id, // Use ID as name to match catalog
+        terminal: bathroom.terminal,
+        gateProximity: bathroom.nearest_gate,
+        type,
+        coordinates: {
+          x: bathroom.coordinates.x,
+          y: bathroom.coordinates.y,
+          z: bathroom.coordinates.z,
+        },
+        status: 'active' as const,
+        sla: {
+          maxHeadwayMinutes: 45,
+          emergencyResponseTargetMinutes: 10,
+        },
+        happyScoreThreshold: 85,
       }
-    }
-
-    if (!text) {
-      throw lastError || new Error('Could not find gates_washrooms.csv')
-    }
-
-    return new Promise((resolve, reject) => {
-      Papa.parse<GatesWashroomsRow>(text, {
-        header: true,
-        skipEmptyLines: true,
-        dynamicTyping: true,
-        transformHeader: (header) => header.trim(), // Trim whitespace from headers
-        transform: (value) => value.trim(), // Trim whitespace from values
-        complete: (results) => {
-          // Log warnings but don't fail if there are some parsing issues
-          if (results.errors.length > 0) {
-            console.warn('CSV parsing warnings:', results.errors)
-          }
-
-          // Check if we have valid data rows
-          if (!results.data || results.data.length === 0) {
-            console.warn('No washroom data rows in CSV, using mock data')
-            resolve(generateMockWashrooms())
-            return
-          }
-
-          const washrooms: Washroom[] = results.data
-            .filter((row) => {
-              // More lenient filtering - check if row exists and has required fields
-              if (!row) return false
-              const name = String(row.name || '').trim()
-              const x = row.x
-              const y = row.y
-              // Allow numeric gate names or terminal-based names
-              return name.length > 0 && x != null && y != null && !isNaN(Number(x)) && !isNaN(Number(y))
-            })
-            .map((row) => {
-              const name = String(row.name || '').trim()
-              const terminal = extractTerminal(name)
-              // For numeric gate names, create a more descriptive name
-              const displayName = /^\d+$/.test(name) 
-                ? `Gate ${name}` 
-                : name
-              
-              return {
-                id: name,
-                name: displayName,
-                terminal,
-                type: inferWashroomType(name),
-                coordinates: {
-                  x: Number(row.x),
-                  y: Number(row.y),
-                  z: Number(row.z) || 0,
-                },
-                status: 'active' as const,
-                sla: {
-                  maxHeadwayMinutes: 45,
-                  emergencyResponseTargetMinutes: 10,
-                },
-                happyScoreThreshold: 85,
-              }
-            })
-
-          if (washrooms.length === 0) {
-            console.warn('No valid washroom data found in CSV after filtering, using mock data')
-            resolve(generateMockWashrooms())
-            return
-          }
-
-          console.log(`Loaded ${washrooms.length} washrooms from CSV`)
-          resolve(washrooms)
-        },
-        error: (error: unknown) => {
-          console.warn('CSV parsing error, using mock data:', error)
-          resolve(generateMockWashrooms())
-        },
-      })
     })
+
+    console.log(`Loaded ${washrooms.length} washrooms from bathroom catalog`)
+    return washrooms
   } catch (error) {
-    console.warn('Failed to load washrooms from CSV, using mock data:', error)
+    console.warn('Failed to load washrooms from bathroom catalog, using mock data:', error)
     return generateMockWashrooms()
   }
 }
