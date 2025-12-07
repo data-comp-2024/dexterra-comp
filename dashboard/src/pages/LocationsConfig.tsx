@@ -1,7 +1,6 @@
 import { Typography, Box, Grid, Tabs, Tab } from '@mui/material'
 import { useState } from 'react'
 import WashroomCatalog from '../components/LocationsConfig/WashroomCatalog'
-import PoopProfileConfig from '../components/LocationsConfig/PoopProfileConfig'
 import RulesThresholds from '../components/LocationsConfig/RulesThresholds'
 
 function LocationsConfig() {
@@ -15,7 +14,6 @@ function LocationsConfig() {
 
       <Tabs value={activeTab} onChange={(_, v) => setActiveTab(v)} sx={{ mb: 3 }}>
         <Tab label="Washroom Catalog" />
-        <Tab label="Poop Profiles" />
         <Tab label="Rules & Thresholds" />
       </Tabs>
 
@@ -28,14 +26,6 @@ function LocationsConfig() {
       )}
 
       {activeTab === 1 && (
-        <Grid container spacing={{ xs: 2, sm: 3 }}>
-          <Grid item xs={12}>
-            <PoopProfileConfig />
-          </Grid>
-        </Grid>
-      )}
-
-      {activeTab === 2 && (
         <Grid container spacing={{ xs: 2, sm: 3 }}>
           <Grid item xs={12}>
             <RulesThresholds />

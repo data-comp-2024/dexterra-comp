@@ -18,6 +18,25 @@ import {
   ActivityLogEntry,
 } from '../types'
 import { DATA_ROOT } from '../constants'
+
+// Bathroom catalog data structure from bathroom.json
+export interface BathroomCatalogItem {
+  id: string
+  terminal: string
+  level: string
+  zone: string
+  gender: 'Men' | 'Women'
+  nearest_gate: string
+  coordinates: {
+    x: number
+    y: number
+    z: number
+  }
+  facility_counts: {
+    stalls: number
+    urinals: number
+  }
+}
 import {
   generateMockWashrooms,
   generateMockTasks,
@@ -643,5 +662,56 @@ function convertResponseToScore(response: number | string): number {
   
   // Map 1-4 to 0-100
   return ((num - 1) / 3) * 100
+}
+
+/**
+ * Load bathroom catalog data from bathroom.json
+ */
+export async function loadBathroomCatalog(): Promise<BathroomCatalogItem[]> {
+  try {
+    const possiblePaths = [
+      'data/bathroom.json',
+      '../data/bathroom.json',
+      './data/bathroom.json',
+      `${DATA_ROOT}/bathroom.json`,
+    ]
+
+    let text: string | null = null
+    for (const path of possiblePaths) {
+      try {
+        const response = await fetch(path)
+        if (response.ok) {
+          text = await response.text()
+          console.log(`Loaded bathroom catalog from ${path}`)
+          break
+        }
+      } catch (err) {
+        continue
+      }
+    }
+
+    if (!text) {
+      console.warn('Could not load bathroom.json, returning empty array')
+      return []
+    }
+
+    const data = JSON.parse(text)
+    const bathrooms: BathroomCatalogItem[] = Object.entries(data).map(([id, item]: [string, any]) => ({
+      id,
+      terminal: item.terminal || '',
+      level: item.level || '',
+      zone: item.zone || '',
+      gender: item.gender || 'Men',
+      nearest_gate: item.nearest_gate || '',
+      coordinates: item.coordinates || { x: 0, y: 0, z: 0 },
+      facility_counts: item.facility_counts || { stalls: 0, urinals: 0 },
+    }))
+
+    console.log(`Loaded ${bathrooms.length} bathrooms from catalog`)
+    return bathrooms
+  } catch (error) {
+    console.error('Failed to load bathroom catalog:', error)
+    return []
+  }
 }
 
