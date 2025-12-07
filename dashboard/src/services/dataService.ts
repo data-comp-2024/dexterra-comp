@@ -172,7 +172,7 @@ export async function loadWashrooms(): Promise<Washroom[]> {
           console.log(`Loaded ${washrooms.length} washrooms from CSV`)
           resolve(washrooms)
         },
-        error: (error) => {
+        error: (error: unknown) => {
           console.warn('CSV parsing error, using mock data:', error)
           resolve(generateMockWashrooms())
         },
@@ -241,7 +241,8 @@ export async function loadHappyScoreData(washrooms: Washroom[] = []): Promise<Ha
 
     if (!text) {
       console.log('Happy Score CSV not found, using mock data')
-      return generateMockHappyScores()
+      const washroomIds = washrooms.map((w) => w.id)
+      return generateMockHappyScores(washroomIds)
     }
 
     return new Promise((resolve) => {
@@ -259,7 +260,8 @@ export async function loadHappyScoreData(washrooms: Washroom[] = []): Promise<Ha
 
           if (!results.data || results.data.length === 0) {
             console.log('No Happy Score data in CSV, using mock data')
-            resolve(generateMockHappyScores())
+            const washroomIds = washrooms.map((w) => w.id)
+            resolve(generateMockHappyScores(washroomIds))
             return
           }
 
@@ -346,34 +348,35 @@ export async function loadHappyScoreData(washrooms: Washroom[] = []): Promise<Ha
 
           if (happyScores.length === 0) {
             console.log('No valid Happy Score data after filtering, using mock data')
-            resolve(generateMockHappyScores())
+            const washroomIds = washrooms.map((w) => w.id)
+            resolve(generateMockHappyScores(washroomIds))
             return
           }
 
           console.log(`Loaded ${happyScores.length} Happy Score entries from CSV`)
           resolve(happyScores)
         },
-        error: (error) => {
+        error: (error: unknown) => {
           console.warn('Happy Score CSV parsing error, using mock data:', error)
-          resolve(generateMockHappyScores())
+          const washroomIds = washrooms.map((w) => w.id)
+          resolve(generateMockHappyScores(washroomIds))
         },
       })
     })
-  } catch (error) {
+  } catch (error: unknown) {
     console.warn('Failed to load Happy Score data, using mock data:', error)
-    return generateMockHappyScores()
+    const washroomIds = washrooms.map((w) => w.id)
+    return generateMockHappyScores(washroomIds)
   }
 }
 
 /**
  * Load tasks from lighthouse.io Tasks data
  */
-export async function loadTasks(): Promise<Task[]> {
+export async function loadTasks(washroomIds: string[] = [], crewIds: string[] = []): Promise<Task[]> {
   try {
     // Try to load from lighthouse.io Tasks Excel files
     // This is a placeholder - actual implementation would parse Excel files
-    const tasksPath = `${DATA_ROOT}/lighthouse.io/Tasks 2024/`
-    
     // For now, return mock data
     // Full implementation would:
     // 1. List Excel files in the directory
@@ -381,10 +384,16 @@ export async function loadTasks(): Promise<Task[]> {
     // 3. Transform rows to Task objects
     // 4. Map location keys to washroom IDs
     
-    return generateMockTasks()
-  } catch (error) {
+    // If no IDs provided, generate some mock IDs
+    const mockWashroomIds = washroomIds.length > 0 ? washroomIds : ['T1-134-MEN', 'T1-134-WOMEN']
+    const mockCrewIds = crewIds.length > 0 ? crewIds : ['crew-1', 'crew-2']
+    
+    return generateMockTasks(mockWashroomIds, mockCrewIds)
+  } catch (error: unknown) {
     console.warn('Failed to load tasks, using mock data:', error)
-    return generateMockTasks()
+    const mockWashroomIds = washroomIds.length > 0 ? washroomIds : ['T1-134-MEN', 'T1-134-WOMEN']
+    const mockCrewIds = crewIds.length > 0 ? crewIds : ['crew-1', 'crew-2']
+    return generateMockTasks(mockWashroomIds, mockCrewIds)
   }
 }
 
@@ -422,14 +431,124 @@ export async function loadEmergencyEvents(): Promise<EmergencyEvent[]> {
 }
 
 /**
- * Load flights from flight schedule data
+ * Load flights from unified_flight_data.csv
  */
 export async function loadFlights(): Promise<Flight[]> {
   try {
-    // TODO: Load from actual flight schedule files when available
-    // For now, return mock data
-    console.log('Loading flights - using mock data')
-    return generateMockFlights(30)
+    // Try multiple possible paths
+    const possiblePaths = [
+      'data/unified_flight_data.csv',
+      '../data/unified_flight_data.csv',
+      './data/unified_flight_data.csv',
+      `${DATA_ROOT}/unified_flight_data.csv`,
+    ]
+
+    let text: string | null = null
+    for (const path of possiblePaths) {
+      try {
+        const response = await fetch(path)
+        if (response.ok) {
+          text = await response.text()
+          console.log(`Loaded flight data from ${path}`)
+          break
+        }
+      } catch (err) {
+        // Try next path
+        continue
+      }
+    }
+
+    if (!text) {
+      console.warn('Could not load unified_flight_data.csv, using mock data')
+      return generateMockFlights(30)
+    }
+
+    return new Promise((resolve) => {
+      Papa.parse<{
+        'Actual Arrival Time': string
+        'Flight Id': string
+        Destination: string
+        Pax: string
+        Origin: string
+      }>(text, {
+        header: true,
+        skipEmptyLines: true,
+        transformHeader: (header) => header.trim(),
+        complete: (results) => {
+          if (results.errors.length > 0) {
+            console.warn('Flight CSV parsing warnings:', results.errors.slice(0, 5))
+          }
+
+          if (!results.data || results.data.length === 0) {
+            console.warn('No flight data in CSV, using mock data')
+            resolve(generateMockFlights(30))
+            return
+          }
+
+          const flights: Flight[] = results.data
+            .filter((row) => {
+              // Filter out invalid rows
+              if (!row || !row['Actual Arrival Time'] || !row['Flight Id']) return false
+              const timeStr = String(row['Actual Arrival Time']).trim()
+              const flightId = String(row['Flight Id']).trim()
+              return timeStr.length > 0 && flightId.length > 0
+            })
+            .map((row) => {
+              const timeStr = String(row['Actual Arrival Time']).trim()
+              const flightId = String(row['Flight Id']).trim()
+              const origin = String(row.Origin || '').trim()
+              const destination = String(row.Destination || '').trim()
+              const pax = parseInt(String(row.Pax || '0'), 10) || 0
+
+              // Parse the actual arrival time
+              const actualTime = new Date(timeStr)
+
+              // Determine if it's a departure or arrival
+              const isDeparture = origin.toLowerCase() === 'security'
+              const isArrival = destination.toLowerCase() === 'security'
+
+              // Get gate (skip if "Security")
+              let gate = ''
+              if (isDeparture) {
+                gate = destination !== 'Security' ? destination : ''
+              } else if (isArrival) {
+                gate = origin !== 'Security' ? origin : ''
+              } else {
+                // Fallback: use destination if not security, otherwise origin
+                gate = destination !== 'Security' ? destination : origin !== 'Security' ? origin : ''
+              }
+
+              // Extract airline code from flight ID (first 2-3 letters)
+              const airlineMatch = flightId.match(/^([A-Z]{2,3})/)
+              const airline = airlineMatch ? airlineMatch[1] : flightId.substring(0, 2)
+              const flightNumber = flightId
+
+              return {
+                id: `flight-${flightId}-${timeStr}`,
+                airline,
+                flightNumber,
+                gate,
+                origin,
+                destination,
+                actualArrivalTime: actualTime,
+                actualDepartureTime: isDeparture ? actualTime : undefined,
+                scheduledArrivalTime: isArrival ? actualTime : undefined,
+                scheduledDepartureTime: isDeparture ? actualTime : undefined,
+                passengers: pax,
+                aircraftType: 'unknown', // Not in CSV
+                status: 'arrived' as const, // All flights are historical
+              }
+            })
+
+          console.log(`Loaded ${flights.length} flights from CSV`)
+          resolve(flights)
+        },
+        error: (error: unknown) => {
+          console.error('Error parsing flight CSV:', error)
+          resolve(generateMockFlights(30))
+        },
+      })
+    })
   } catch (error) {
     console.warn('Failed to load flights, using mock data:', error)
     return generateMockFlights(30)

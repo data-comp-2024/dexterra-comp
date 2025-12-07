@@ -179,6 +179,8 @@ export interface Flight {
   airline: string
   flightNumber: string
   gate: string
+  origin?: string // Origin location (e.g., "Security" for departures, gate number for arrivals)
+  destination?: string // Destination location (e.g., gate number for departures, "Security" for arrivals)
   scheduledArrivalTime?: Date
   scheduledDepartureTime?: Date
   actualArrivalTime?: Date

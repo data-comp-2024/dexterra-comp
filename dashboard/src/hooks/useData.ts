@@ -59,20 +59,26 @@ export function useData(): UseDataReturn {
       setLoading(true)
       setError(null)
 
-      // Load all data in parallel with individual error handling
+      // Load washrooms first (needed for tasks)
+      const washroomsResult = await loadWashrooms()
+      setWashrooms(washroomsResult)
+      
+      // Load crew data (needed for tasks)
+      const crewResult = await loadCrewData()
+      setCrew(crewResult)
+      const crewIds = crewResult.map((c) => c.id)
+      const washroomIds = washroomsResult.map((w) => w.id)
+      
+      // Load all other data in parallel with individual error handling
       // Each function now handles its own errors and falls back to mock data
       const [
-        washroomsData,
         tasksData,
-        crewData,
         emergencyEventsData,
         simulationDataResult,
         flightsData,
         activityLogData,
       ] = await Promise.allSettled([
-        loadWashrooms(),
-        loadTasks(),
-        loadCrewData(),
+        loadTasks(washroomIds, crewIds),
         loadEmergencyEvents(),
         loadSimulationData(),
         loadFlights(),
@@ -80,10 +86,7 @@ export function useData(): UseDataReturn {
       ])
 
       // Extract values from Promise.allSettled results
-      const washroomsResult = washroomsData.status === 'fulfilled' ? washroomsData.value : []
-      setWashrooms(washroomsResult)
       setTasks(tasksData.status === 'fulfilled' ? tasksData.value : [])
-      setCrew(crewData.status === 'fulfilled' ? crewData.value : [])
       setEmergencyEvents(
         emergencyEventsData.status === 'fulfilled' ? emergencyEventsData.value : []
       )
@@ -115,9 +118,7 @@ export function useData(): UseDataReturn {
 
       // Log any rejected promises (though they should all resolve with mock data)
       const rejected = [
-        washroomsData,
         tasksData,
-        crewData,
         emergencyEventsData,
         simulationDataResult,
         flightsData,

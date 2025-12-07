@@ -1,9 +1,8 @@
 /**
- * Flight Schedule - Timeline/list view of flights with change indicators
+ * Flight Schedule - Timeline/list view of flights
  */
 
 import {
-  Box,
   Card,
   CardContent,
   Typography,
@@ -14,226 +13,139 @@ import {
   TableHead,
   TableRow,
   Chip,
-  Tooltip,
-  IconButton,
 } from '@mui/material'
-import {
-  Schedule,
-  Cancel,
-  SwapHoriz,
-  Info,
-} from '@mui/icons-material'
-import { useMemo, useState } from 'react'
-import { useData } from '../../hooks/useData'
-import { Flight, FlightStatus } from '../../types'
+import { FlightTakeoff, FlightLand } from '@mui/icons-material'
+import { useMemo } from 'react'
+import { Flight } from '../../types'
 import { format } from 'date-fns'
 
-function FlightSchedule() {
-  const { flights } = useData()
-  const [filterStatus, setFilterStatus] = useState<FlightStatus | 'all'>('all')
+interface FlightScheduleProps {
+  flights: Flight[]
+}
 
-  const filteredFlights = useMemo(() => {
-    let filtered = flights
-    if (filterStatus !== 'all') {
-      filtered = filtered.filter((f) => f.status === filterStatus)
-    }
-    return filtered.slice(0, 50) // Limit to 50 for performance
-  }, [flights, filterStatus])
+function FlightSchedule({ flights }: FlightScheduleProps) {
+  const sortedFlights = useMemo(() => {
+    return [...flights].sort((a, b) => {
+      const timeA = a.actualArrivalTime?.getTime() || a.actualDepartureTime?.getTime() || 0
+      const timeB = b.actualArrivalTime?.getTime() || b.actualDepartureTime?.getTime() || 0
+      return timeA - timeB
+    })
+  }, [flights])
 
-  const getStatusColor = (status: FlightStatus) => {
-    switch (status) {
-      case 'scheduled':
-        return 'default'
-      case 'delayed':
-        return 'warning'
-      case 'cancelled':
-        return 'error'
-      case 'boarding':
-        return 'info'
-      case 'departed':
-        return 'success'
-      case 'arrived':
-        return 'success'
-      default:
-        return 'default'
+  // Helper function to determine flight type and gates
+  const getFlightInfo = (flight: Flight) => {
+    const origin = flight.origin || ''
+    const destination = flight.destination || ''
+    const isDeparture = origin.toLowerCase() === 'security'
+    const isArrival = destination.toLowerCase() === 'security'
+    
+    let flightType: 'Departure' | 'Arrival' | 'Unknown' = 'Unknown'
+    let arrivalGate = '-'
+    let departureGate = '-'
+    
+    if (isDeparture) {
+      flightType = 'Departure'
+      departureGate = destination !== 'Security' ? destination : '-'
+    } else if (isArrival) {
+      flightType = 'Arrival'
+      arrivalGate = origin !== 'Security' ? origin : '-'
     }
-  }
-
-  const getChangeIcon = (changeType: string) => {
-    switch (changeType) {
-      case 'delay':
-        return <Schedule color="warning" />
-      case 'cancellation':
-        return <Cancel color="error" />
-      case 'gate_change':
-        return <SwapHoriz color="warning" />
-      default:
-        return null
-    }
+    
+    return { flightType, arrivalGate, departureGate }
   }
 
   return (
     <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
       <CardContent sx={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-          <Typography variant="h6" sx={{ fontWeight: 600 }}>
-            Flight Schedule
-          </Typography>
-          <Box sx={{ display: 'flex', gap: 1 }}>
-            {(['all', 'scheduled', 'delayed', 'cancelled', 'boarding'] as const).map((status) => (
-              <Chip
-                key={status}
-                label={status === 'all' ? 'All' : status.charAt(0).toUpperCase() + status.slice(1)}
-                onClick={() => setFilterStatus(status)}
-                color={filterStatus === status ? 'primary' : 'default'}
-                variant={filterStatus === status ? 'filled' : 'outlined'}
-                size="small"
-              />
-            ))}
-          </Box>
-        </Box>
+        <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>
+          Flight Schedule
+        </Typography>
 
         <TableContainer sx={{ flex: 1, overflow: 'auto', minHeight: 0 }}>
           <Table stickyHeader>
             <TableHead>
               <TableRow>
                 <TableCell>Flight</TableCell>
-                <TableCell>Gate</TableCell>
-                <TableCell>Arrival</TableCell>
-                <TableCell>Departure</TableCell>
+                <TableCell>Type</TableCell>
+                <TableCell>Arrival Gate</TableCell>
+                <TableCell>Departure Gate</TableCell>
+                <TableCell>Time</TableCell>
                 <TableCell>Passengers</TableCell>
                 <TableCell>Status</TableCell>
-                <TableCell>Changes</TableCell>
-                <TableCell>Impact</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
-              {filteredFlights.length === 0 ? (
+              {sortedFlights.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={8} align="center">
+                  <TableCell colSpan={7} align="center">
                     <Typography variant="body2" color="text.secondary">
                       No flights found
                     </Typography>
                   </TableCell>
                 </TableRow>
               ) : (
-                filteredFlights.map((flight) => (
-                  <TableRow key={flight.id} hover>
-                    <TableCell>
-                      <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                        {flight.airline} {flight.flightNumber}
-                      </Typography>
-                      <Typography variant="caption" color="text.secondary">
-                        {flight.aircraftType}
-                      </Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Typography variant="body2">{flight.gate}</Typography>
-                    </TableCell>
-                    <TableCell>
-                      {flight.scheduledArrivalTime ? (
-                        <Box>
+                sortedFlights.map((flight) => {
+                  const { flightType, arrivalGate, departureGate } = getFlightInfo(flight)
+                  const displayTime = flight.actualArrivalTime || flight.actualDepartureTime
+                  
+                  return (
+                    <TableRow key={flight.id} hover>
+                      <TableCell>
+                        <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                          {flight.airline} {flight.flightNumber}
+                        </Typography>
+                      </TableCell>
+                      <TableCell>
+                        {flightType === 'Departure' ? (
+                          <Chip
+                            icon={<FlightTakeoff />}
+                            label="Departure"
+                            size="small"
+                            color="primary"
+                            variant="outlined"
+                          />
+                        ) : flightType === 'Arrival' ? (
+                          <Chip
+                            icon={<FlightLand />}
+                            label="Arrival"
+                            size="small"
+                            color="success"
+                            variant="outlined"
+                          />
+                        ) : (
+                          <Chip label="Unknown" size="small" variant="outlined" />
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <Typography variant="body2">
+                          {arrivalGate}
+                        </Typography>
+                      </TableCell>
+                      <TableCell>
+                        <Typography variant="body2">
+                          {departureGate}
+                        </Typography>
+                      </TableCell>
+                      <TableCell>
+                        {displayTime ? (
                           <Typography variant="body2">
-                            {format(flight.scheduledArrivalTime, 'HH:mm')}
+                            {format(displayTime, 'HH:mm')}
                           </Typography>
-                          {flight.actualArrivalTime &&
-                            flight.actualArrivalTime.getTime() !==
-                              flight.scheduledArrivalTime.getTime() && (
-                              <Typography variant="caption" color="warning.main">
-                                Actual: {format(flight.actualArrivalTime, 'HH:mm')}
-                              </Typography>
-                            )}
-                        </Box>
-                      ) : (
-                        <Typography variant="body2" color="text.secondary">
-                          -
-                        </Typography>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {flight.scheduledDepartureTime ? (
-                        <Box>
-                          <Typography variant="body2">
-                            {format(flight.scheduledDepartureTime, 'HH:mm')}
+                        ) : (
+                          <Typography variant="body2" color="text.secondary">
+                            -
                           </Typography>
-                          {flight.actualDepartureTime &&
-                            flight.actualDepartureTime.getTime() !==
-                              flight.scheduledDepartureTime.getTime() && (
-                              <Typography variant="caption" color="warning.main">
-                                Actual: {format(flight.actualDepartureTime, 'HH:mm')}
-                              </Typography>
-                            )}
-                        </Box>
-                      ) : (
-                        <Typography variant="body2" color="text.secondary">
-                          -
-                        </Typography>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <Typography variant="body2">{flight.passengers}</Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Chip
-                        label={flight.status}
-                        size="small"
-                        color={getStatusColor(flight.status) as any}
-                      />
-                    </TableCell>
-                    <TableCell>
-                      {flight.changes && flight.changes.length > 0 ? (
-                        <Box sx={{ display: 'flex', gap: 0.5 }}>
-                          {flight.changes.map((change, idx) => (
-                            <Tooltip
-                              key={idx}
-                              title={
-                                <Box>
-                                  <Typography variant="caption">
-                                    {change.type.replace('_', ' ').toUpperCase()}
-                                  </Typography>
-                                  {change.originalValue && (
-                                    <Typography variant="caption">
-                                      <br />
-                                      From: {change.originalValue.toString()}
-                                    </Typography>
-                                  )}
-                                  {change.newValue && (
-                                    <Typography variant="caption">
-                                      <br />
-                                      To: {change.newValue.toString()}
-                                    </Typography>
-                                  )}
-                                </Box>
-                              }
-                            >
-                              <IconButton size="small">{getChangeIcon(change.type)}</IconButton>
-                            </Tooltip>
-                          ))}
-                        </Box>
-                      ) : (
-                        <Typography variant="body2" color="text.secondary">
-                          -
-                        </Typography>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {flight.impactOnDemand ? (
-                        <Tooltip title={flight.impactOnDemand}>
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                            <Info fontSize="small" color="action" />
-                            <Typography variant="caption" sx={{ maxWidth: 150 }} noWrap>
-                              {flight.impactOnDemand}
-                            </Typography>
-                          </Box>
-                        </Tooltip>
-                      ) : (
-                        <Typography variant="body2" color="text.secondary">
-                          -
-                        </Typography>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                ))
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <Typography variant="body2">{flight.passengers}</Typography>
+                      </TableCell>
+                      <TableCell>
+                        <Chip label="Arrived" size="small" color="success" />
+                      </TableCell>
+                    </TableRow>
+                  )
+                })
               )}
             </TableBody>
           </Table>
