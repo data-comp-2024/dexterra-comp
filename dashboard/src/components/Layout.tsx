@@ -7,9 +7,9 @@ import {
   IconButton,
   Badge,
   Avatar,
-  Button,
   Divider,
 } from '@mui/material'
+import DexterraLogo from '../../data/DexterraLogo.png'
 import {
   NotificationsOutlined,
   HelpOutline,
@@ -94,18 +94,16 @@ function Layout({ children }: LayoutProps) {
       >
         <Toolbar sx={{ px: { xs: 2, sm: 3 }, minHeight: '64px !important' }}>
           {/* Logo */}
-          <Typography
-            variant="h6"
-            component="div"
+          <Box
+            component="img"
+            src={DexterraLogo}
+            alt="Dexterra Logo"
             sx={{
-              fontWeight: 700,
-              color: 'primary.main',
+              height: 40,
               mr: 4,
-              fontSize: '1.25rem',
+              objectFit: 'contain',
             }}
-          >
-            Pearson Washroom Dashboard
-          </Typography>
+          />
 
           {/* Spacer */}
           <Box sx={{ flexGrow: 1 }} />
