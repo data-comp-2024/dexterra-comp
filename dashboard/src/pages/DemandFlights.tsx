@@ -2,7 +2,6 @@ import { Typography, Box, Grid, FormControl, InputLabel, Select, MenuItem, IconB
 import { ChevronLeft, ChevronRight } from '@mui/icons-material'
 import { useState, useMemo } from 'react'
 import { format, parseISO, startOfDay, addDays, subDays } from 'date-fns'
-import DemandForecastChart from '../components/DemandFlights/DemandForecastChart'
 import FlightSchedule from '../components/DemandFlights/FlightSchedule'
 import { useData } from '../hooks/useData'
 
@@ -75,7 +74,7 @@ function DemandFlights() {
     <Box sx={{ minHeight: 0 }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
         <Typography variant="h4" sx={{ fontWeight: 600 }}>
-          Demand & Flights
+          Flights
         </Typography>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
           <IconButton onClick={handlePreviousDay} disabled={!canGoPrevious} size="small">
@@ -114,11 +113,6 @@ function DemandFlights() {
       </Box>
 
       <Grid container spacing={{ xs: 2, sm: 3 }} sx={{ minHeight: 0 }}>
-        {/* Demand Forecast */}
-        <Grid item xs={12}>
-          <DemandForecastChart />
-        </Grid>
-
         {/* Flight Schedule */}
         <Grid item xs={12} sx={{ minHeight: 0 }}>
           <FlightSchedule flights={filteredFlights} />

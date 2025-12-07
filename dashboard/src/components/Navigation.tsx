@@ -26,7 +26,7 @@ const tabs = [
   { path: '/live-ops', label: 'Live Ops', icon: Dashboard },
   { path: '/assignments', label: 'Assignments', icon: Assignment },
   { path: '/optimizer', label: 'Optimizer', icon: AutoAwesome, subtitle: 'Craptimizer' },
-  { path: '/demand-flights', label: 'Demand & Flights', icon: FlightTakeoff },
+  { path: '/demand-flights', label: 'Flights', icon: FlightTakeoff },
   { path: '/performance-slas', label: 'Performance & SLAs', icon: Assessment },
   { path: '/incidents-alerts', label: 'Incidents & Alerts', icon: Warning },
   { path: '/crew-shifts', label: 'Crew & Shifts', icon: People },

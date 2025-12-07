@@ -86,7 +86,7 @@ When multiple flights are delayed, passenger flow patterns change significantly,
 ## Immediate Actions
 
 1. **Assess Impact**
-   - Check the Demand & Flights tab to see delayed flights
+   - Check the Flights tab to see delayed flights
    - Identify affected terminals and gates
    - Review passenger volume projections
 
