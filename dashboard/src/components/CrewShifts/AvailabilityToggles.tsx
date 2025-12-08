@@ -21,6 +21,7 @@ import {
   DialogActions,
   Button,
   TextField,
+  CardHeader,
 } from '@mui/material'
 import { PersonOff, Person } from '@mui/icons-material'
 import { useState } from 'react'
@@ -69,18 +70,15 @@ function AvailabilityToggles() {
 
   return (
     <>
-      <Card>
-        <CardContent>
-          <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>
-            Availability Management
-          </Typography>
-
+      <Card sx={{ display: 'flex', flexDirection: 'column' }}>
+        <CardHeader title="Availability Management" />
+        <CardContent sx={{ flexGrow: 1, overflow: 'auto' }}>
           {onShiftCrew.length === 0 ? (
             <Typography variant="body2" color="text.secondary">
               No crew members on shift
             </Typography>
           ) : (
-            <List sx={{ maxHeight: 300, overflow: 'auto' }}>
+            <List>
               {onShiftCrew.map((member) => (
                 <ListItem
                   key={member.id}
