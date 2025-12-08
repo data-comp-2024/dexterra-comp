@@ -13,6 +13,7 @@ import {
   Chip,
   Alert,
   LinearProgress,
+  CardHeader,
 } from '@mui/material'
 import { AccessTime, Warning, CheckCircle } from '@mui/icons-material'
 import { useMemo } from 'react'
@@ -78,12 +79,9 @@ function BreakManagement() {
   const needsBreakSoonCount = breakInfo.filter((info) => info.needsBreakSoon).length
 
   return (
-    <Card>
-      <CardContent>
-        <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>
-          Break Management
-        </Typography>
-
+    <Card sx={{ display: 'flex', flexDirection: 'column' }}>
+      <CardHeader title="Break Management" />
+      <CardContent sx={{ flexGrow: 1, overflow: 'auto' }}>
         {overdueCount > 0 && (
           <Alert severity="error" sx={{ mb: 2 }}>
             {overdueCount} crew member{overdueCount > 1 ? 's' : ''} overdue for break
@@ -101,7 +99,7 @@ function BreakManagement() {
             No crew members on shift
           </Typography>
         ) : (
-          <List sx={{ maxHeight: 300, overflow: 'auto' }}>
+          <List sx={{ height: '100%', overflow: 'auto' }}>
             {breakInfo.map((info) => {
               const progress = Math.min(
                 (info.minutesSinceLastBreak / MAX_WORK_MINUTES_BEFORE_BREAK) * 100,
@@ -112,13 +110,12 @@ function BreakManagement() {
                 <ListItem
                   key={info.crew.id}
                   sx={{
-                    borderLeft: `4px solid ${
-                      info.isOverdue
-                        ? '#D32F2F'
-                        : info.needsBreakSoon
+                    borderLeft: `4px solid ${info.isOverdue
+                      ? '#D32F2F'
+                      : info.needsBreakSoon
                         ? '#ED6C02'
                         : '#06A77D'
-                    }`,
+                      }`,
                     mb: 1,
                     bgcolor: 'action.hover',
                     borderRadius: 1,
@@ -202,8 +199,8 @@ function BreakManagement() {
                           {info.nextBreakDue && isAfter(now, info.nextBreakDue)
                             ? 'Overdue'
                             : info.nextBreakDue
-                            ? formatDistanceToNow(info.nextBreakDue, { addSuffix: true })
-                            : 'N/A'}
+                              ? formatDistanceToNow(info.nextBreakDue, { addSuffix: true })
+                              : 'N/A'}
                         </Typography>
                       </Box>
                     </Box>
