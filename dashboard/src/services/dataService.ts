@@ -650,11 +650,11 @@ export async function loadEmergencyEvents(): Promise<EmergencyEvent[]> {
     const crew = await loadCrewData()
     const washroomIds = washrooms.map((w) => w.id)
     const crewIds = crew.map((c) => c.id)
-    return generateMockEmergencyEvents(washroomIds, crewIds, 20)
+    return generateMockEmergencyEvents(washroomIds, crewIds, 5) // Reduced from 20 to 5
   } catch (error) {
     console.warn('Failed to load emergency events, using mock data:', error)
     // Fallback: generate with empty arrays (will still create events)
-    return generateMockEmergencyEvents([], [], 20)
+    return generateMockEmergencyEvents([], [], 5) // Reduced from 20 to 5
   }
 }
 

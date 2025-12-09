@@ -83,14 +83,17 @@ export function generateMockTasks(
   const priorities: TaskPriority[] = ['normal', 'high', 'emergency']
   const states: TaskState[] = ['unassigned', 'assigned', 'in_progress', 'completed', 'cancelled']
 
-  const now = new Date()
+  // Use CURRENT_DATE for consistent date handling (Dec 31, 2024)
+  const CURRENT_DATE = new Date('2024-12-31T12:00:00')
+  const now = CURRENT_DATE
   const tasks: Task[] = []
 
   for (let i = 0; i < count; i++) {
     const washroomId = washroomIds[i % washroomIds.length]
     const type = types[i % types.length]
     const priority = priorities[i % priorities.length]
-    const createdTime = new Date(now.getTime() - (count - i) * 15 * 60 * 1000) // Spread over time
+    // Spread tasks over the last 6 hours (more realistic for live ops)
+    const createdTime = new Date(now.getTime() - (count - i) * (6 * 60 * 60 * 1000 / count))
 
     let state: TaskState = states[i % states.length]
     let assignedCrewId: string | undefined
@@ -107,7 +110,10 @@ export function generateMockTasks(
     }
 
     if (state === 'completed') {
-      completedTime = new Date(startedTime!.getTime() + 20 * 60 * 1000)
+      // Ensure completedTime is before CURRENT_DATE (Dec 31, 2024)
+      const completionTime = new Date(startedTime!.getTime() + 20 * 60 * 1000)
+      const maxDate = new Date('2024-12-31T23:59:59')
+      completedTime = completionTime <= maxDate ? completionTime : new Date(maxDate.getTime() - 30 * 60 * 1000)
     }
 
     if (priority === 'emergency') {
@@ -145,7 +151,9 @@ export function generateMockCrew(count: number = 15): Crew[] {
     'Robert Thomas', 'Jessica Jackson', 'Daniel White', 'Michelle Harris', 'Kevin Martin',
   ]
 
-  const now = new Date()
+  // Use CURRENT_DATE for consistent date handling (Dec 31, 2024)
+  const CURRENT_DATE = new Date('2024-12-31T12:00:00')
+  const now = CURRENT_DATE
   const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 6, 0, 0)
 
   return Array.from({ length: count }, (_, i) => {
@@ -177,7 +185,7 @@ export function generateMockCrew(count: number = 15): Crew[] {
 export function generateMockEmergencyEvents(
   washroomIds: string[],
   crewIds: string[],
-  count: number = 20
+  count: number = 5 // Reduced from 20 to 5 for more realistic frequency
 ): EmergencyEvent[] {
   const types: EmergencyType[] = [
     'overflowing_toilet',
@@ -189,7 +197,9 @@ export function generateMockEmergencyEvents(
   const severities: EmergencyEvent['severity'][] = ['low', 'medium', 'high', 'critical']
   const sources: EmergencyEvent['source'][] = ['sensor', 'staff_report', 'passenger_report']
 
-  const now = new Date()
+  // Import CURRENT_DATE for consistent date handling
+  const CURRENT_DATE = new Date('2024-12-31T12:00:00')
+  const now = CURRENT_DATE
   const events: EmergencyEvent[] = []
 
   // Ensure we have at least some washroom and crew IDs
@@ -198,7 +208,8 @@ export function generateMockEmergencyEvents(
 
   for (let i = 0; i < count; i++) {
     const washroomId = defaultWashroomIds[i % defaultWashroomIds.length]
-    const detectedAt = new Date(now.getTime() - (count - i) * 30 * 60 * 1000)
+    // Spread emergencies over the last 24 hours (more realistic)
+    const detectedAt = new Date(now.getTime() - (count - i) * (24 * 60 * 60 * 1000 / count))
     const severity = severities[i % severities.length]
 
     let status: EmergencyEvent['status'] = 'active'
@@ -206,21 +217,18 @@ export function generateMockEmergencyEvents(
     let firstResponseTime: Date | undefined
     let resolutionTime: Date | undefined
 
-    // Ensure at least 40% are active (more realistic for a live dashboard)
-    if (i % 5 < 2) {
-      // 40% are active
+    // More realistic: only 10-20% are active (most emergencies are resolved quickly)
+    if (i % 10 < 1) {
+      // 10% are active
       status = 'active'
-    } else if (i % 5 < 4) {
-      // 40% are resolved
+      assignedCrewId = defaultCrewIds[i % defaultCrewIds.length]
+      firstResponseTime = new Date(detectedAt.getTime() + 8 * 60 * 1000)
+    } else {
+      // 90% are resolved
       status = 'resolved'
       assignedCrewId = defaultCrewIds[i % defaultCrewIds.length]
       firstResponseTime = new Date(detectedAt.getTime() + 5 * 60 * 1000)
       resolutionTime = new Date(firstResponseTime.getTime() + 15 * 60 * 1000)
-    } else {
-      // 20% are assigned but not resolved
-      status = 'active'
-      assignedCrewId = defaultCrewIds[i % defaultCrewIds.length]
-      firstResponseTime = new Date(detectedAt.getTime() + 8 * 60 * 1000)
     }
 
     events.push({
