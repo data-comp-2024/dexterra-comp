@@ -108,6 +108,8 @@ import math
 import os
 import json
 import pdb
+import argparse
+from collections import defaultdict
 
 
 class CrewStatus(Enum):
@@ -750,14 +752,14 @@ class CleaningCrewOptimizer:
             priority = 1
             task_type = CleaningType.CALL_IN
             
-            if max_waiting_time > 120:
+            if max_waiting_time > 640:   # Changed to give more realistic outcomes from 120
                 emergency_triggered = True
                 priority = 5
                 task_type = CleaningType.EMERGENCY
-            elif max_waiting_time > 60:
+            elif max_waiting_time > 480:   # Changed to give more realistic outcomes from 60
                 call_in_triggered = True
                 priority = 4
-            elif max_waiting_time > 30:
+            elif max_waiting_time > 360:    # Changed to give more realistic outcomes from 30
                 call_in_triggered = True
                 priority = 3
             
@@ -1215,86 +1217,275 @@ class CleaningCrewOptimizer:
         return results
 
 
-### RESULTS INSPECTION & USAGE EXAMPLE ###
+# --------------- HELPER FUNCTIONS FOR CLI INPUTS ---------------
+
+def parse_simulation_datetime_range(range_str: str) -> Tuple[pd.Timestamp, pd.Timestamp]:
+    """
+    Parse a date range string of the form:
+        "2024-06-01 00:00:00": "2024-06-02 00:00:00"
+    or a JSON object string:
+        {"2024-06-01 00:00:00": "2024-06-02 00:00:00"}
+    into (start_timestamp, end_timestamp).
+    """
+    text = range_str.strip()
+    try:
+        # If it's already a valid JSON object
+        if text.startswith("{"):
+            obj = json.loads(text)
+        else:
+            # Wrap with braces if we only have the key-value pair part
+            obj = json.loads("{" + text + "}")
+    except json.JSONDecodeError as e:
+        raise ValueError(
+            f"Could not parse simulation_duration date range from '{range_str}'. "
+            f"Expected something like '\"2024-06-01 00:00:00\": \"2024-06-02 00:00:00\"'."
+        ) from e
+
+    if not isinstance(obj, dict) or len(obj) != 1:
+        raise ValueError(
+            f"simulation_duration must be a single key-value mapping of start->end, got: {obj}"
+        )
+
+    start_str, end_str = next(iter(obj.items()))
+    start_ts = pd.to_datetime(start_str)
+    end_ts = pd.to_datetime(end_str)
+
+    if end_ts <= start_ts:
+        raise ValueError(
+            f"End time ({end_ts}) must be after start time ({start_ts}) in simulation_duration."
+        )
+
+    return start_ts, end_ts
+
+
+def load_cleaning_requirements_from_json(
+    path: str,
+    start_ts: pd.Timestamp,
+    end_ts: pd.Timestamp
+) -> List[Tuple[str, int]]:
+    """
+    Load cleaning requirements from a JSON file with structure like
+    test_with_min_tasks_cleaning_requirements.json:
+
+        {
+            "2024-06-01 00:00:00": {"FG2055": 3, "FG2043": 15, ...},
+            "2024-06-02 00:00:00": {"FG2043": 4, "FG2085": 15, ...},
+            ...
+        }
+
+    We aggregate counts over all keys with date in [start_ts, end_ts).
+    Returns: list of (restroom_id, total_required_cleanings).
+    """
+    with open(path, "r") as f:
+        data = json.load(f)
+
+    total_counts: Dict[str, int] = defaultdict(int)
+
+    for date_str, restroom_counts in data.items():
+        date_ts = pd.to_datetime(date_str)
+        if not (start_ts <= date_ts < end_ts):
+            continue
+        for restroom_id, count in restroom_counts.items():
+            if count is None:
+                continue
+            total_counts[restroom_id] += int(count)
+
+    # Convert to list of tuples as expected by the optimizer
+    return [(rid, cnt) for rid, cnt in total_counts.items()]
+
+
+def load_waiting_time_from_json(
+    path: str,
+    start_ts: pd.Timestamp,
+    end_ts: pd.Timestamp,
+    dt_seconds: int
+) -> Dict[str, np.ndarray]:
+    """
+    Load waiting time data from a JSON file structured like all_wait_times.json:
+
+        {
+          "2024-01-01": {
+            "FE2097": {
+              "2024-01-01 00:00:00": {
+                "avg_wait_minutes": 0.0,
+                "avg_service_minutes": null
+              },
+              ...
+            },
+            "FE2098": { ... }
+          },
+          ...
+        }
+
+    We:
+      1) Flatten to rows (datetime, washroom, avg_wait_minutes),
+      2) Filter datetimes in [start_ts, end_ts),
+      3) Pivot to wide format and resample at `dt_seconds`,
+      4) Convert minutes -> seconds,
+      5) For each washroom W, create two series "W-M" and "W-F"
+         (to match the optimizer's section_id convention).
+    """
+    with open(path, "r") as f:
+        raw = json.load(f)
+
+    rows = []
+    # Outer keys are typically date strings; second level washrooms; third level intervals
+    for _date_key, washrooms in raw.items():
+        for washroom_id, intervals in washrooms.items():
+            for dt_str, metrics in intervals.items():
+                ts = pd.to_datetime(dt_str)
+                if not (start_ts <= ts < end_ts):
+                    continue
+                if metrics is None:
+                    continue
+                val = metrics.get("avg_wait_minutes")
+                if val is None:
+                    val = 0.0
+                rows.append(
+                    {
+                        "datetime": ts,
+                        "washroom": washroom_id,
+                        "avg_wait_minutes": float(val)
+                    }
+                )
+
+    if not rows:
+        raise ValueError(
+            f"No waiting time rows found in {path} within range {start_ts} to {end_ts}."
+        )
+
+    df = pd.DataFrame(rows)
+    df = df.sort_values("datetime")
+
+    # Pivot to wide: each washroom is a column
+    df_wide = df.pivot(index="datetime", columns="washroom", values="avg_wait_minutes")
+
+    # Resample to dt_seconds and forward-fill, then fill remaining NaNs with 0
+    freq = f"{dt_seconds}S"
+    df_wide = df_wide.resample(freq).ffill().fillna(0.0)
+
+    # Ensure we cover exactly the simulation range [start_ts, end_ts)
+    total_seconds = (end_ts - start_ts).total_seconds()
+    expected_len = int(total_seconds / dt_seconds)
+
+    # Reindex to exact expected timestamps
+    idx = pd.date_range(start=start_ts, periods=expected_len, freq=freq)
+    df_wide = df_wide.reindex(idx).ffill().fillna(0.0)
+
+    waiting_time_data: Dict[str, np.ndarray] = {}
+    # Convert minutes to seconds and duplicate for M/F
+    for washroom_id in df_wide.columns:
+        # minutes -> seconds
+        series_sec = (df_wide[washroom_id].astype(float) * 60.0).to_numpy()
+        waiting_time_data[f"{washroom_id}-M"] = series_sec
+        waiting_time_data[f"{washroom_id}-F"] = series_sec
+
+    return waiting_time_data
+
+
+# ---------------------- CLI ENTRY POINT -----------------------
 
 if __name__ == "__main__":
-    # --- 1. Simple restroom layout ---
-    restrooms_example = {
-        "R1": {"floor": 1, "capacity_M": 0.4, "capacity_F": 0.4},
-        "R2": {"floor": 1, "capacity_M": 0.3, "capacity_F": 0.3},
-        "R3": {"floor": 2, "capacity_M": 0.5, "capacity_F": 0.4},
-    }
+    parser = argparse.ArgumentParser(
+        description="Run the cleaning crew optimizer with JSON inputs."
+    )
+    parser.add_argument(
+        "--restrooms",
+        required=True,
+        help="Path to JSON file defining restrooms (dict of restroom_id -> properties)."
+    )
+    parser.add_argument(
+        "--travel-time-matrix",
+        dest="travel_time_matrix",
+        required=True,
+        help="Path to JSON file defining travel_time_matrix[from][to] in seconds."
+    )
+    parser.add_argument(
+        "--simulation-duration",
+        required=True,
+        help=(
+            "Date range in the form "
+            "'\"2024-06-01 00:00:00\": \"2024-06-02 00:00:00\"' "
+            "or a JSON object '{\"2024-06-01 00:00:00\": \"2024-06-02 00:00:00\"}'."
+        ),
+    )
+    parser.add_argument(
+        "--cleaning-requirements",
+        required=True,
+        help=(
+            "Path to JSON file with cleaning requirements over time "
+            "(e.g., test_with_min_tasks_cleaning_requirements.json format)."
+        ),
+    )
+    parser.add_argument(
+        "--waiting-time",
+        dest="waiting_time",
+        required=True,
+        help=(
+            "Path to JSON file with waiting time data in the 'all_wait_times.json' format."
+        ),
+    )
+    parser.add_argument(
+        "--dt",
+        type=int,
+        required=True,
+        help="Simulation time step in seconds (e.g., 60 for 1 minute).",
+    )
+    parser.add_argument(
+        "--config",
+        default="crew_config.json",
+        help="Optional path to crew configuration JSON file (default: crew_config.json).",
+    )
 
-    # --- 1b. Travel time matrix (seconds) ---
-    # Must include all origins/destinations the crews will use:
-    # Bases (Base_1, Base_2) and restrooms (R1, R2, R3).
-    travel_time_matrix_example = {
-        "Base_1": {
-            "R1": 120, "R2": 180, "R3": 240,
-            "Base_2": 60, "Base_3": 90
-        },
-        "Base_2": {
-            "R1": 120, "R2": 90,  "R3": 180,
-            "Base_1": 60, "Base_3": 60
-        },
-        "Base_3": {
-            "R1": 150, "R2": 120, "R3": 60,
-            "Base_1": 90, "Base_2": 60
-        },
-        "R1": {
-            "Base_1": 120, "Base_2": 120, "Base_3": 150,
-            "R2": 60,  "R3": 180
-        },
-        "R2": {
-            "Base_1": 180, "Base_2": 90,  "Base_3": 120,
-            "R1": 60,  "R3": 120
-        },
-        "R3": {
-            "Base_1": 240, "Base_2": 180, "Base_3": 60,
-            "R1": 180, "R2": 120
-        },
-    }
+    args = parser.parse_args()
 
+    # 1. Load restrooms and travel-time matrix
+    with open(args.restrooms, "r") as f:
+        restrooms = json.load(f)
 
-    # --- 2. Simulation parameters ---
-    simulation_duration = 4 * 3600   # 4 hours
-    dt = 300                         # 5 minutes
+    with open(args.travel_time_matrix, "r") as f:
+        travel_time_matrix = json.load(f)
 
-    # --- 3. Waiting time data (all zero except one spike to trigger a call-in) ---
-    n_steps = int(simulation_duration / dt)
-    waiting_time_data_example = {}
+    # 2. Parse simulation date range and compute duration in seconds
+    start_ts, end_ts = parse_simulation_datetime_range(args.simulation_duration)
+    simulation_duration_seconds = (end_ts - start_ts).total_seconds()
+    if simulation_duration_seconds <= 0:
+        raise ValueError(
+            f"Computed non-positive simulation duration ({simulation_duration_seconds} seconds)."
+        )
 
-    for rid in restrooms_example.keys():
-        for gender in ["M", "F"]:
-            sec_id = f"{rid}-{gender}"
-            arr = np.zeros(n_steps)
-            # Put a spike in waiting time in the middle of the simulation
-            spike_idx = n_steps // 2
-            arr[spike_idx] = 90  # 90s -> call-in for that section
-            waiting_time_data_example[sec_id] = arr
+    dt = float(args.dt)
 
-    # --- 4. Cleaning requirements ---
-    # (restroom_id, number_of_routine_cleanings_over_the_horizon)
-    cleaning_requirements_example = [
-        ("R1", 3),
-        ("R2", 2),
-        ("R3", 1),
-    ]
+    # 3. Load and filter cleaning requirements for the given date range
+    cleaning_requirements_list = load_cleaning_requirements_from_json(
+        args.cleaning_requirements,
+        start_ts=start_ts,
+        end_ts=end_ts,
+    )
 
-    # --- 5. Create optimizer and run ---
+    # 4. Load waiting time profile for the same date range and dt
+    waiting_time_data = load_waiting_time_from_json(
+        args.waiting_time,
+        start_ts=start_ts,
+        end_ts=end_ts,
+        dt_seconds=args.dt,
+    )
+
+    # 5. Create optimizer and run
     optimizer = CleaningCrewOptimizer(
-        restrooms=restrooms_example,
-        travel_time_matrix=travel_time_matrix_example,
-        simulation_duration=simulation_duration,
-        dt=dt
+        restrooms=restrooms,
+        travel_time_matrix=travel_time_matrix,
+        simulation_duration=simulation_duration_seconds,
+        dt=dt,
+        config_path=args.config,
     )
 
     results = optimizer.run_optimization(
-        waiting_time_data=waiting_time_data_example,
-        cleaning_requirements=cleaning_requirements_example
+        waiting_time_data=waiting_time_data,
+        cleaning_requirements=cleaning_requirements_list,
     )
 
-    # --- 6. Inspect outputs ---
+    # 6. Basic inspection of outputs (kept similar to original example)
     print("\nFinal KPIs:")
     for k, v in results["final_kpis"].items():
         if k != "time":
@@ -1307,10 +1498,13 @@ if __name__ == "__main__":
     print("\nTask summary:")
     print(results["task_summary"])
 
-    # --- 7. Inspect crew schedules ---
     crew_schedules = results["crew_schedules"]
     print("\nAvailable crew IDs:", list(crew_schedules.keys()))
+    if crew_schedules:
+        first_crew_id = list(crew_schedules.keys())[0]
+        print(f"\nSchedule for {first_crew_id}:")
+        print(crew_schedules[first_crew_id])
 
-    first_crew_id = list(crew_schedules.keys())[0]
-    print(f"\nSchedule for {first_crew_id}:")
-    print(crew_schedules)
+    # Save crew schedules to JSON
+    with open("crew_schedules_output.json", "w") as f:
+        json.dump(crew_schedules, f, indent=2)

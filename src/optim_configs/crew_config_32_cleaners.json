@@ -1,0 +1,276 @@
+{
+  "crew_management": {
+    "crew_members": [
+      {
+        "name": "000001",
+        "shift_start_hours": 0.0,
+        "shift_end_hours": 8.0,
+        "skill_level": 1.5,
+        "hourly_rate": 20.0,
+        "base_location": "JT1"
+      },
+      {
+        "name": "000002",
+        "shift_start_hours": 0.0,
+        "shift_end_hours": 8.0,
+        "skill_level": 1.5,
+        "hourly_rate": 20.0,
+        "base_location": "JT2"
+      },
+      {
+        "name": "000003",
+        "shift_start_hours": 0.0,
+        "shift_end_hours": 8.0,
+        "skill_level": 1.5,
+        "hourly_rate": 20.0,
+        "base_location": "JT3"
+      },
+      {
+        "name": "000004",
+        "shift_start_hours": 0.0,
+        "shift_end_hours": 8.0,
+        "skill_level": 1.5,
+        "hourly_rate": 20.0,
+        "base_location": "JT4"
+      },
+      {
+        "name": "000005",
+        "shift_start_hours": 0.0,
+        "shift_end_hours": 8.0,
+        "skill_level": 1.5,
+        "hourly_rate": 20.0,
+        "base_location": "JT5"
+      },
+      {
+        "name": "000006",
+        "shift_start_hours": 8.0,
+        "shift_end_hours": 16.0,
+        "skill_level": 1.5,
+        "hourly_rate": 20.0,
+        "base_location": "JT1"
+      },
+      {
+        "name": "000007",
+        "shift_start_hours": 8.0,
+        "shift_end_hours": 16.0,
+        "skill_level": 1.5,
+        "hourly_rate": 20.0,
+        "base_location": "JT2"
+      },
+      {
+        "name": "000008",
+        "shift_start_hours": 8.0,
+        "shift_end_hours": 16.0,
+        "skill_level": 1.5,
+        "hourly_rate": 20.0,
+        "base_location": "JT3"
+      },
+      {
+        "name": "000009",
+        "shift_start_hours": 8.0,
+        "shift_end_hours": 16.0,
+        "skill_level": 1.5,
+        "hourly_rate": 20.0,
+        "base_location": "JT4"
+      },
+      {
+        "name": "000010",
+        "shift_start_hours": 8.0,
+        "shift_end_hours": 16.0,
+        "skill_level": 1.5,
+        "hourly_rate": 20.0,
+        "base_location": "JT5"
+      },
+      {
+        "name": "000011",
+        "shift_start_hours": 16.0,
+        "shift_end_hours": 24.0,
+        "skill_level": 1.5,
+        "hourly_rate": 20.0,
+        "base_location": "JT1"
+      },
+      {
+        "name": "000012",
+        "shift_start_hours": 16.0,
+        "shift_end_hours": 24.0,
+        "skill_level": 1.5,
+        "hourly_rate": 20.0,
+        "base_location": "JT2"
+      },
+      {
+        "name": "000013",
+        "shift_start_hours": 16.0,
+        "shift_end_hours": 24.0,
+        "skill_level": 1.5,
+        "hourly_rate": 20.0,
+        "base_location": "JT3"
+      },
+      {
+        "name": "000014",
+        "shift_start_hours": 16.0,
+        "shift_end_hours": 24.0,
+        "skill_level": 1.5,
+        "hourly_rate": 20.0,
+        "base_location": "JT4"
+      },
+      {
+        "name": "000015",
+        "shift_start_hours": 16.0,
+        "shift_end_hours": 24.0,
+        "skill_level": 1.5,
+        "hourly_rate": 20.0,
+        "base_location": "JT5"
+      },
+      {
+        "name": "000016",
+        "shift_start_hours": 16.0,
+        "shift_end_hours": 24.0,
+        "skill_level": 1.5,
+        "hourly_rate": 20.0,
+        "base_location": "JT1"
+      },
+	  {
+        "name": "000017",
+        "shift_start_hours": 0.0,
+        "shift_end_hours": 8.0,
+        "skill_level": 1.5,
+        "hourly_rate": 20.0,
+        "base_location": "JT1"
+      },
+      {
+        "name": "000018",
+        "shift_start_hours": 0.0,
+        "shift_end_hours": 8.0,
+        "skill_level": 1.5,
+        "hourly_rate": 20.0,
+        "base_location": "JT2"
+      },
+      {
+        "name": "000019",
+        "shift_start_hours": 0.0,
+        "shift_end_hours": 8.0,
+        "skill_level": 1.5,
+        "hourly_rate": 20.0,
+        "base_location": "JT3"
+      },
+      {
+        "name": "000020",
+        "shift_start_hours": 0.0,
+        "shift_end_hours": 8.0,
+        "skill_level": 1.5,
+        "hourly_rate": 20.0,
+        "base_location": "JT4"
+      },
+      {
+        "name": "000021",
+        "shift_start_hours": 0.0,
+        "shift_end_hours": 8.0,
+        "skill_level": 1.5,
+        "hourly_rate": 20.0,
+        "base_location": "JT5"
+      },
+      {
+        "name": "000022",
+        "shift_start_hours": 8.0,
+        "shift_end_hours": 16.0,
+        "skill_level": 1.5,
+        "hourly_rate": 20.0,
+        "base_location": "JT1"
+      },
+      {
+        "name": "000023",
+        "shift_start_hours": 8.0,
+        "shift_end_hours": 16.0,
+        "skill_level": 1.5,
+        "hourly_rate": 20.0,
+        "base_location": "JT2"
+      },
+      {
+        "name": "000024",
+        "shift_start_hours": 8.0,
+        "shift_end_hours": 16.0,
+        "skill_level": 1.5,
+        "hourly_rate": 20.0,
+        "base_location": "JT3"
+      },
+      {
+        "name": "000025",
+        "shift_start_hours": 8.0,
+        "shift_end_hours": 16.0,
+        "skill_level": 1.5,
+        "hourly_rate": 20.0,
+        "base_location": "JT4"
+      },
+      {
+        "name": "000026",
+        "shift_start_hours": 8.0,
+        "shift_end_hours": 16.0,
+        "skill_level": 1.5,
+        "hourly_rate": 20.0,
+        "base_location": "JT5"
+      },
+      {
+        "name": "000027",
+        "shift_start_hours": 16.0,
+        "shift_end_hours": 24.0,
+        "skill_level": 1.5,
+        "hourly_rate": 20.0,
+        "base_location": "JT1"
+      },
+      {
+        "name": "000028",
+        "shift_start_hours": 16.0,
+        "shift_end_hours": 24.0,
+        "skill_level": 1.5,
+        "hourly_rate": 20.0,
+        "base_location": "JT2"
+      },
+      {
+        "name": "000029",
+        "shift_start_hours": 16.0,
+        "shift_end_hours": 24.0,
+        "skill_level": 1.5,
+        "hourly_rate": 20.0,
+        "base_location": "JT3"
+      },
+      {
+        "name": "000030",
+        "shift_start_hours": 16.0,
+        "shift_end_hours": 24.0,
+        "skill_level": 1.5,
+        "hourly_rate": 20.0,
+        "base_location": "JT4"
+      },
+      {
+        "name": "000031",
+        "shift_start_hours": 16.0,
+        "shift_end_hours": 24.0,
+        "skill_level": 1.5,
+        "hourly_rate": 20.0,
+        "base_location": "JT5"
+      },
+      {
+        "name": "000032",
+        "shift_start_hours": 16.0,
+        "shift_end_hours": 24.0,
+        "skill_level": 1.5,
+        "hourly_rate": 20.0,
+        "base_location": "JT1"
+      }
+    ]
+  },
+  "cleaning_operations": {
+    "cleaning_durations": {
+      "routine": 15.0,
+      "emergency": 25.0,
+      "call_in": 20.0,
+      "deep_clean": 45.0
+    }
+  },
+  "supply_management": {
+    "supply_depot_location": "JT1",
+    "supplies_per_cleaning": 15.0,
+    "restock_time_minutes": 10.0,
+    "restock_cost": 25.0
+  }
+}
