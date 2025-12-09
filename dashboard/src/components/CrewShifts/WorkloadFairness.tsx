@@ -17,6 +17,7 @@ import { useMemo } from 'react'
 import { useData } from '../../hooks/useData'
 import { useCrew } from '../../context/CrewContext'
 import { Crew, Task } from '../../types'
+import { CURRENT_DATE } from '../../constants'
 
 interface CrewWorkload {
   crew: Crew
@@ -32,7 +33,7 @@ function WorkloadFairness() {
   const { crew } = useCrew()
 
   const workloadData = useMemo(() => {
-    const now = new Date()
+    const now = CURRENT_DATE
     const shiftStart = new Date(now)
     shiftStart.setHours(6, 0, 0, 0)
 

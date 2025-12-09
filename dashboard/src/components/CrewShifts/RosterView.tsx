@@ -29,11 +29,12 @@ import { useState, useMemo } from 'react'
 import { useCrew } from '../../context/CrewContext'
 import { Crew, CrewStatus } from '../../types'
 import { format, isAfter, isBefore } from 'date-fns'
+import { CURRENT_DATE } from '../../constants'
 
 function RosterView() {
   const { crew, updateCrewStatus } = useCrew()
   const [anchorEl, setAnchorEl] = useState<{ [key: string]: HTMLElement | null }>({})
-  const now = new Date()
+  const now = CURRENT_DATE
 
   // Separate crew by status
   const crewByStatus = useMemo(() => {
