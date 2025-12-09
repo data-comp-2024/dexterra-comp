@@ -1,4 +1,4 @@
-import { Typography, Box, Grid } from '@mui/material'
+import { Box, Grid } from '@mui/material'
 import RealTimeAlerts from '../components/IncidentsAlerts/RealTimeAlerts'
 import IncidentHistory from '../components/IncidentsAlerts/IncidentHistory'
 import RecurringIncidents from '../components/IncidentsAlerts/RecurringIncidents'
@@ -12,9 +12,12 @@ function IncidentsAlerts() {
       </Typography> */}
 
       <Grid container spacing={{ xs: 2, sm: 3 }}>
-        {/* Left Column - Real-time Alerts */}
+        {/* Left Column - Real-time Alerts & Incident History */}
         <Grid item xs={12} md={8}>
           <RealTimeAlerts />
+          <Box sx={{ mt: 3 }}>
+            <IncidentHistory />
+          </Box>
         </Grid>
 
         {/* Right Column - Recurring & Escalation */}
@@ -23,11 +26,6 @@ function IncidentsAlerts() {
           <Box sx={{ mt: 3 }}>
             <EscalationRules />
           </Box>
-        </Grid>
-
-        {/* Full Width - Incident History */}
-        <Grid item xs={12}>
-          <IncidentHistory />
         </Grid>
       </Grid>
     </Box>

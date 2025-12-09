@@ -21,6 +21,12 @@ import {
   TextField,
   Button,
   IconButton,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Grid,
+  Divider,
 } from '@mui/material'
 import {
   Download,
@@ -43,6 +49,7 @@ function IncidentHistory() {
   const [washroomFilter, setWashroomFilter] = useState<string[]>([])
   const [startDate, setStartDate] = useState<Date | null>(null)
   const [endDate, setEndDate] = useState<Date | null>(null)
+  const [selectedIncident, setSelectedIncident] = useState<EmergencyEvent | null>(null)
 
   const filteredIncidents = useMemo(() => {
     let filtered = emergencyEvents.filter((event) => {
@@ -122,6 +129,7 @@ function IncidentHistory() {
   }
 
   return (
+    <>
     <Card>
       <CardContent>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
@@ -320,10 +328,8 @@ function IncidentHistory() {
                       <TableCell align="right">
                         <IconButton
                           size="small"
-                          onClick={() => {
-                            // TODO: Show incident details modal
-                            console.log('View incident:', event.id)
-                          }}
+                          onClick={() => setSelectedIncident(event)}
+                          aria-label="View incident details"
                         >
                           <Visibility />
                         </IconButton>
@@ -337,6 +343,130 @@ function IncidentHistory() {
         </TableContainer>
       </CardContent>
     </Card>
+
+    {/* Incident Detail Modal */}
+    <Dialog
+      open={selectedIncident !== null}
+      onClose={() => setSelectedIncident(null)}
+      maxWidth="md"
+      fullWidth
+    >
+      {selectedIncident && (
+        <>
+          <DialogTitle>
+            Incident Details - {selectedIncident.type.replace(/_/g, ' ').toUpperCase()}
+          </DialogTitle>
+          <DialogContent>
+            <Grid container spacing={2} sx={{ mt: 1 }}>
+              <Grid item xs={12} sm={6}>
+                <Typography variant="caption" color="text.secondary">
+                  Incident ID
+                </Typography>
+                <Typography variant="body1">{selectedIncident.id}</Typography>
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <Typography variant="caption" color="text.secondary">
+                  Status
+                </Typography>
+                <Box>
+                  <Chip
+                    label={selectedIncident.status}
+                    color={selectedIncident.status === 'resolved' ? 'success' : 'error'}
+                    size="small"
+                  />
+                </Box>
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <Typography variant="caption" color="text.secondary">
+                  Washroom
+                </Typography>
+                <Typography variant="body1">
+                  {washrooms.find((w) => w.id === selectedIncident.washroomId)?.name || selectedIncident.washroomId}
+                </Typography>
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <Typography variant="caption" color="text.secondary">
+                  Severity
+                </Typography>
+                <Box>
+                  <Chip
+                    label={selectedIncident.severity}
+                    color={
+                      selectedIncident.severity === 'critical'
+                        ? 'error'
+                        : selectedIncident.severity === 'high'
+                        ? 'warning'
+                        : 'default'
+                    }
+                    size="small"
+                  />
+                </Box>
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <Typography variant="caption" color="text.secondary">
+                  Source
+                </Typography>
+                <Typography variant="body1">
+                  {selectedIncident.source.replace(/_/g, ' ')}
+                </Typography>
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <Typography variant="caption" color="text.secondary">
+                  Detected At
+                </Typography>
+                <Typography variant="body1">
+                  {format(selectedIncident.detectedAt, 'MMM d, yyyy HH:mm')}
+                </Typography>
+              </Grid>
+              {selectedIncident.firstResponseTime && (
+                <>
+                  <Grid item xs={12} sm={6}>
+                    <Typography variant="caption" color="text.secondary">
+                      First Response Time
+                    </Typography>
+                    <Typography variant="body1">
+                      {format(selectedIncident.firstResponseTime, 'MMM d, yyyy HH:mm')}
+                    </Typography>
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <Typography variant="caption" color="text.secondary">
+                      Response Time
+                    </Typography>
+                    <Typography variant="body1">
+                      {getResponseTime(selectedIncident)} minutes
+                    </Typography>
+                  </Grid>
+                </>
+              )}
+              {selectedIncident.resolutionTime && (
+                <Grid item xs={12} sm={6}>
+                  <Typography variant="caption" color="text.secondary">
+                    Resolution Time
+                  </Typography>
+                  <Typography variant="body1">
+                    {format(selectedIncident.resolutionTime, 'MMM d, yyyy HH:mm')}
+                  </Typography>
+                </Grid>
+              )}
+              {selectedIncident.assignedCrewId && (
+                <Grid item xs={12} sm={6}>
+                  <Typography variant="caption" color="text.secondary">
+                    Assigned Crew
+                  </Typography>
+                  <Typography variant="body1">
+                    {crew.find((c) => c.id === selectedIncident.assignedCrewId)?.name || selectedIncident.assignedCrewId}
+                  </Typography>
+                </Grid>
+              )}
+            </Grid>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setSelectedIncident(null)}>Close</Button>
+          </DialogActions>
+        </>
+      )}
+    </Dialog>
+    </>
   )
 }
 

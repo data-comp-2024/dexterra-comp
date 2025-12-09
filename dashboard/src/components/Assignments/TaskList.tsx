@@ -35,7 +35,7 @@ import { useState, useMemo } from 'react'
 import { useData } from '../../hooks/useData'
 import { Task, TaskState, TaskPriority, Crew } from '../../types'
 import { format, formatDistanceToNow } from 'date-fns'
-import { TASK_TIME_HORIZON_HOURS } from '../../constants'
+import { TASK_TIME_HORIZON_HOURS, CURRENT_DATE } from '../../constants'
 
 interface TaskListProps {
   onTaskSelect?: (task: Task) => void
@@ -191,7 +191,7 @@ function TaskList({
 
   const getSlaCountdown = (task: Task) => {
     if (!task.slaDeadline) return null
-    const now = new Date()
+    const now = CURRENT_DATE
     const remaining = task.slaDeadline.getTime() - now.getTime()
     const minutes = Math.floor(remaining / (1000 * 60))
     

@@ -29,7 +29,7 @@ import { useState, useMemo } from 'react'
 import { useData } from '../../hooks/useData'
 import { EmergencyEvent } from '../../types'
 import { format, differenceInMinutes } from 'date-fns'
-import { HAPPY_SCORE_THRESHOLD } from '../../constants'
+import { HAPPY_SCORE_THRESHOLD, CURRENT_DATE } from '../../constants'
 import { calculateAverageHappyScore, isWashroomUnhappy } from '../../services/dataTransform'
 
 interface AlertItem {
@@ -79,7 +79,7 @@ function RealTimeAlerts() {
             type: 'unhappy',
             washroomId: washroom.id,
             washroomName: washroom.name,
-            detectedAt: new Date(), // Use current time as detection
+            detectedAt: CURRENT_DATE, // Use current time as detection
             severity: avgScore < 70 ? 'high' : avgScore < 80 ? 'medium' : 'low',
             data: { washroomId: washroom.id, happyScore: avgScore },
           })
@@ -143,7 +143,7 @@ function RealTimeAlerts() {
     if (alert.type !== 'emergency') return null
 
     const event = alert.data as EmergencyEvent
-    const now = new Date()
+    const now = CURRENT_DATE
     const minutesSinceDetection = differenceInMinutes(now, alert.detectedAt)
     
     // SLA: 10 minutes for emergencies
