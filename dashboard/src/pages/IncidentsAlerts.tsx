@@ -7,9 +7,9 @@ import EscalationRules from '../components/IncidentsAlerts/EscalationRules'
 function IncidentsAlerts() {
   return (
     <Box>
-      <Typography variant="h4" sx={{ mb: 3, fontWeight: 600 }}>
+      {/* <Typography variant="h4" sx={{ mb: 3, fontWeight: 600 }}>
         Incidents & Alerts
-      </Typography>
+      </Typography> */}
 
       <Grid container spacing={{ xs: 2, sm: 3 }}>
         {/* Left Column - Real-time Alerts */}

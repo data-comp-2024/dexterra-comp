@@ -36,9 +36,9 @@ function PerformanceSLAs() {
   return (
     <Box>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Typography variant="h4" sx={{ fontWeight: 600 }}>
+        {/* <Typography variant="h4" sx={{ fontWeight: 600 }}>
           Performance & SLAs
-        </Typography>
+        </Typography> */}
         <Box sx={{ display: 'flex', gap: 1 }}>
           <Button
             startIcon={<Download />}

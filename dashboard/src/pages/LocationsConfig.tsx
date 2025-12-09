@@ -11,9 +11,9 @@ function LocationsConfig() {
 
   return (
     <Box>
-      <Typography variant="h4" sx={{ mb: 3, fontWeight: 600 }}>
+      {/* <Typography variant="h4" sx={{ mb: 3, fontWeight: 600 }}>
         Locations & Config
-      </Typography>
+      </Typography> */}
 
       <Tabs value={activeTab} onChange={(_, v) => setActiveTab(v)} sx={{ mb: 3 }}>
         <Tab label="Washroom Catalog" />

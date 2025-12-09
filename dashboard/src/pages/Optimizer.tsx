@@ -132,9 +132,9 @@ function Optimizer() {
 
   return (
     <Box>
-      <Typography variant="h4" sx={{ mb: 3, fontWeight: 600 }}>
+      {/* <Typography variant="h4" sx={{ mb: 3, fontWeight: 600 }}>
         Optimizer (Craptimizer)
-      </Typography>
+      </Typography> */}
 
       <Grid container spacing={{ xs: 2, sm: 3 }}>
         {/* Controls */}

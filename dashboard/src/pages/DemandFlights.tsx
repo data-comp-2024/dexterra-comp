@@ -73,9 +73,9 @@ function DemandFlights() {
   return (
     <Box sx={{ minHeight: 0 }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Typography variant="h4" sx={{ fontWeight: 600 }}>
+        {/* <Typography variant="h4" sx={{ fontWeight: 600 }}>
           Flights
-        </Typography>
+        </Typography> */}
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
           <IconButton onClick={handlePreviousDay} disabled={!canGoPrevious} size="small">
             <ChevronLeft />
