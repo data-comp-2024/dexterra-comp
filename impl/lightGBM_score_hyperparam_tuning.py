@@ -3,14 +3,29 @@ import csv
 import json
 import yaml
 import joblib
+import argparse
 import numpy as np
 import pandas as pd
 
 from scipy.spatial import distance_matrix
 
 from lightgbm import LGBMRegressor
-from sklearn.model_selection import train_test_split, RandomizedSearchCV
+from sklearn.model_selection import RandomizedSearchCV, TimeSeriesSplit
 from sklearn.metrics import mean_squared_error, r2_score
+
+from utils import build_dataset
+
+# ============================================================
+# NEW: ARGUMENT FOR BASE DATA DIRECTORY (ONLY CHANGE REQUESTED)
+# ============================================================
+
+parser = argparse.ArgumentParser()
+parser.add_argument("--data_dir", type=str, required=True,
+    help="Path to Dexterra Competition Data folder.")
+args = parser.parse_args()
+
+BASE = args.data_dir  # This replaces the previously hard-coded base folder
+
 
 # ============================================================
 # 1. LOAD RAW DATA (one time only)
@@ -19,13 +34,15 @@ from sklearn.metrics import mean_squared_error, r2_score
 # --- Happy or Not data ---
 
 happy_or_not = pd.read_csv(
-    r"C:\Users\mwendwa.kiko\Documents\Personal_Kiko\Dexterra Competition\Data\OneDrive_2025-11-03 (1)\Happy or Not 2024\Happy or Not Combined Data 2024.csv",
+    os.path.join(BASE,
+        r"OneDrive_2025-11-03 (1)\Happy or Not 2024\Happy or Not Combined Data 2024.csv"
+    ),
     sep=';',
-    engine='python',           # more tolerant than the default C engine
-    quoting=csv.QUOTE_NONE,    # don't treat quotes as special
-    escapechar='\\',           # let backslash escape delimiters if present
-    encoding='utf-8',          # adjust if your file uses a different encoding
-    on_bad_lines='warn'        # read the file instead of throwing; logs any truly bad rows
+    engine='python',
+    quoting=csv.QUOTE_NONE,
+    escapechar='\\',
+    encoding='utf-8',
+    on_bad_lines='warn'
 )
 
 # Remove all " marks from column names and data
@@ -58,9 +75,9 @@ happy_or_not[happy_or_not.columns[1]] = pd.to_datetime(
     happy_or_not[happy_or_not.columns[1]], format='mixed'
 )
 
-# Encode response_binary (same mapping as original)
+# response_binary (same mapping as original)
 happy_or_not['response_binary'] = np.where(
-    happy_or_not['response'] == 'happy', 0,
+    happy_or_not['response'] == 'happy', 1,
     np.where(
         happy_or_not['response'] == 'veryHappy', 1,
         np.where(
@@ -77,7 +94,7 @@ happy_or_not_filtered = happy_or_not[happy_or_not['zone'].isin(zones_interest)]
 
 # --- Tasks data ---
 
-root_folder = r'C:\Users\mwendwa.kiko\Documents\Personal_Kiko\Dexterra Competition\Data\lighthouse.io\lighthouse.io'
+root_folder = os.path.join(BASE, r"lighthouse.io\lighthouse.io")
 
 all_files = []
 for file in os.listdir(os.path.join(root_folder, 'Tasks 2024')):
@@ -120,14 +137,16 @@ tasks_washroom_filtered_merged['Name_or_other'] = np.where(
     tasks_washroom_filtered_merged['Name']
 )
 
-# --- Flight info data ---
+# --- Flight info data (Arrivals) ---
 
 flight_info = pd.read_excel(
-    r'C:\Users\mwendwa.kiko\Documents\Personal_Kiko\Dexterra Competition\Data\OneDrive_2025-11-03\GTAA flights arrival departure data 2024\Pax info YYZ.xlsx'
+    os.path.join(BASE,
+        r"OneDrive_2025-11-03\GTAA flights arrival departure data 2024\Pax info YYZ.xlsx"
+    )
 )
 flight_info['Arr Gate'] = flight_info['Arr Gate'].astype(str)
 
-with open(r'airport_gates2.yml', 'r') as file:
+with open(os.path.join(BASE, 'airport_gates2.yml'), 'r') as file:
     airport_gates = yaml.safe_load(file)
 
 zone_mapping = {}
@@ -138,9 +157,22 @@ for zone, gates in airport_gates.items():
 flight_info['zone'] = flight_info['Arr Gate'].map(zone_mapping)
 flight_info['Arr Actual Arrival Time'] = pd.to_datetime(flight_info['Arr Actual Arrival Time'])
 
+
+flight_info_departures = pd.read_excel(
+    os.path.join(BASE,
+        r"OneDrive_2025-11-03\GTAA flights arrival departure data 2024\Pax info YYZ.xlsx"
+    ),
+    sheet_name='Departures'
+)
+flight_info_departures['Dep Gate'] = flight_info_departures['Dep Gate'].astype(str)
+flight_info_departures['Dep Actual Arrival Time'] = pd.to_datetime(
+    flight_info_departures['Dep Actual Arrival Time']
+)
+flight_info_departures['zone'] = flight_info_departures['Dep Gate'].map(zone_mapping)
+
 # --- Coordinates and distance tables ---
 
-coordinates = pd.read_csv('gates_washrooms.csv')
+coordinates = pd.read_csv(os.path.join(BASE, 'gates_washrooms.csv'))
 
 # Centering coordinates (as in original)
 centroid = coordinates[['x', 'y']].mean()
@@ -159,7 +191,7 @@ distances_df = pd.DataFrame(
 distances_df = distances_df.rename(columns={'level_0': 'gate_name', 'level_1': 'washroom_name'})
 
 # Path distances
-path_distances = pd.read_csv('./full_repo/dexterra-comp/maps/gate_shortest_paths.csv')
+path_distances = pd.read_csv(os.path.join(BASE, 'gate_shortest_paths.csv'))
 path_distances[['origin_label', 'dest_label']] = path_distances[['origin_label', 'dest_label']].apply(
     lambda x: x.str.replace('gate_', '')
 )
@@ -182,7 +214,7 @@ path_distances = path_distances[
 
 # --- Downstream washrooms filter (apply to both distance tables) ---
 
-downstream_washrooms = pd.read_excel('downstream_washrooms.xlsx')
+downstream_washrooms = pd.read_excel(os.path.join(BASE, 'downstream_washrooms.xlsx'))
 downstream_washrooms['Downstream_washrooms'] = downstream_washrooms['Downstream_washrooms'].apply(
     lambda x: [item.strip() for item in str(x).split(',')]
 )
@@ -217,244 +249,52 @@ distances_df_down['washroom_downstream'] = distances_df_down.apply(
 distances_df_down = distances_df_down[distances_df_down['washroom_downstream']].copy()
 
 # Consolidate distance sources
-DISTANCE_TABLES = {
+# For arrivals: use downstream-filtered distances
+DISTANCE_TABLES_ARRIVALS = {
     'path': path_distances_down[['gate_name', 'washroom_name', 'distance']],
     'euclidean': distances_df_down[['gate_name', 'washroom_name', 'distance']]
 }
 
+# For departures: use full (unfiltered) distances
+DISTANCE_TABLES_DEPARTURES = {
+    'path': path_distances[['gate_name', 'washroom_name', 'distance']],
+    'euclidean': distances_df[['gate_name', 'washroom_name', 'distance']]
+}
+
+# --- Avg wait times JSON (global raw DF, to be resampled per dataset) ---
+
+demand_json = json.load(open(
+    os.path.join(BASE,
+        r"OneDrive_2025-11-03\GTAA flights arrival departure data 2024\all_wait_times.json"
+    )
+))
+
+wait_rows = []
+for date_str, bathrooms in demand_json.items():
+    for washroom, intervals in bathrooms.items():
+        for dt_str, metrics in intervals.items():
+            wait_rows.append({
+                "datetime": pd.to_datetime(dt_str),
+                "washroom": washroom,
+                "avg_wait_minutes": metrics["avg_wait_minutes"]
+            })
+
+df_wait_raw = pd.DataFrame(wait_rows)
+df_wait_raw['datetime'] = pd.to_datetime(df_wait_raw['datetime'])
+
 # Name of the UTC datetime column from Happy or Not dataset
-UTC_DATETIME_COL = happy_or_not_filtered.columns[0]      # matches original usage
-LOCAL_DATETIME_COL = "local_datetime"                    # second datetime column in original
-
-
-# ============================================================
-# 2. FUNCTION TO BUILD FEATURES FOR GIVEN DATASET HYPERPARAMS
-# ============================================================
-
-def build_dataset(resampling_period: str,
-                  decay_param: float,
-                  distance_source: str) -> tuple[pd.DataFrame, pd.Series]:
-    """
-    Build the modeling dataset (X, y) for given:
-    - resampling_period: e.g. '1H', '2H', '4H', '8H', '12H', '24H'
-    - decay_param: exponential distance decay parameter
-    - distance_source: 'path' or 'euclidean'
-    """
-
-    # --- 2.1. Number of Happy or Not ratings per (time, washroom) ---
-
-    number_of_hourly_ratings = (
-        happy_or_not_filtered
-        .set_index(UTC_DATETIME_COL)
-        .groupby('washroom_code')
-        .resample(resampling_period)
-        .size()
-        .rename("count")
-        .reset_index()
-    )
-
-    # --- 2.2. Percentage happy per washroom over time ---
-
-    hourly_values = (
-        happy_or_not_filtered
-        .set_index(happy_or_not_filtered[LOCAL_DATETIME_COL])
-        .resample(resampling_period)[['response_binary', 'washroom_code']]
-        .value_counts()
-        .unstack()
-    )
-
-    # Unstack to have MultiIndex columns: outer (washroom_code), inner (response_binary)
-    hourly_values_unstacked = hourly_values.unstack()
-
-    # Compute percentage happy per washroom
-    outer_cols = hourly_values_unstacked.columns.get_level_values(0).unique()
-    percentage_happy = pd.DataFrame(index=hourly_values_unstacked.index)
-
-    for col in outer_cols:
-        if (col, 1.0) not in hourly_values_unstacked.columns:
-            # If there are no "happy=1" entries for this washroom, set NaN
-            num = pd.Series(0.0, index=hourly_values_unstacked.index)
-        else:
-            num = hourly_values_unstacked[(col, 1.0)]
-
-        den = hourly_values_unstacked[col].sum(axis=1)
-        percentage_happy[col] = np.where(den > 0, (num / den) * 100, np.nan)
-
-    # Interpolate & fill NA
-    percentage_happy = percentage_happy.interpolate(
-        method='linear',
-        limit_direction='both'
-    )
-    percentage_happy = percentage_happy.fillna(percentage_happy.median())
-
-    # --- 2.3. Tasks per washroom / staff ---
-
-    washrooms_hourly = (
-        tasks_washroom_filtered_merged
-        .set_index('DateTime')
-        .resample(resampling_period)[['washroom_code', 'Name_or_other']]
-        .value_counts()
-        .unstack()
-    )
-
-    # Flatten multi-index columns
-    washrooms_hourly_unstacked = washrooms_hourly.unstack()
-    washrooms_hourly_unstacked.columns = [
-        f"{col[0]}_{col[1]}" for col in washrooms_hourly_unstacked.columns
-    ]
-
-    # Merge percentage_happy with tasks (wide)
-    percentage_happy_tasks_merged = percentage_happy.merge(
-        washrooms_hourly_unstacked,
-        left_index=True,
-        right_index=True,
-        how='inner'
-    )
-
-    # --- 2.4. Add washroom dummies (one-hot on washroom_code) ---
-
-    percentage_happy_stacked = (
-        percentage_happy
-        .stack()
-        .to_frame('percentage_happy')
-        .rename_axis(['DateTime', 'washroom_code'])
-        .reset_index()
-    )
-
-    percentage_happy_dummies = pd.get_dummies(
-        percentage_happy_stacked['washroom_code']
-    ).astype(int)
-
-    percentage_happy_with_dummies = pd.concat(
-        [percentage_happy_stacked, percentage_happy_dummies],
-        axis=1
-    )
-
-    # Merge tasks (long)
-    washrooms_hourly_reset = washrooms_hourly.reset_index().fillna(0)
-    percentage_happy_with_dummies_merged = percentage_happy_with_dummies.merge(
-        washrooms_hourly_reset,
-        left_on=['DateTime', 'washroom_code'],
-        right_on=['DateTime', 'washroom_code'],
-        how='inner'
-    )
-
-    # --- 2.5. Flight arrivals aggregated by gate and time ---
-
-    hourly_arrivals = (
-        flight_info
-        .set_index('Arr Actual Arrival Time')
-        .groupby('Arr Gate')['Arr Pax']
-        .resample(resampling_period)
-        .sum()
-        .unstack('Arr Gate')
-        .fillna(0)
-    )
-
-    hourly_arrivals_stacked = hourly_arrivals.stack().to_frame('arrivals').reset_index()
-    # Columns: ['Arr Actual Arrival Time', 'Arr Gate', 'arrivals']
-
-    # --- 2.6. Distance-decayed arrivals per washroom ---
-
-    if distance_source not in DISTANCE_TABLES:
-        raise ValueError(f"distance_source must be one of {list(DISTANCE_TABLES.keys())}")
-
-    distance_df = DISTANCE_TABLES[distance_source]
-
-    hourly_arrivals_stacked_with_distances = hourly_arrivals_stacked.merge(
-        distance_df,
-        left_on='Arr Gate',
-        right_on='gate_name',
-        how='inner',
-        validate='many_to_many'
-    )
-
-    hourly_arrivals_stacked_with_distances['decayed_arrivals'] = (
-        hourly_arrivals_stacked_with_distances['arrivals'] *
-        np.exp(-decay_param * hourly_arrivals_stacked_with_distances['distance'])
-    )
-
-    hourly_arrivals_stacked_decayed_grouped = (
-        hourly_arrivals_stacked_with_distances
-        .groupby(['Arr Actual Arrival Time', 'washroom_name'])['decayed_arrivals']
-        .sum()
-        .reset_index()
-    )
-
-    # --- 2.7. Merge with percentage_happy & tasks & washroom-only tasks & ratings ---
-
-    percentage_happy_tasks_flights_merged_decayed = percentage_happy_with_dummies.merge(
-        hourly_arrivals_stacked_decayed_grouped,
-        left_on=['DateTime', 'washroom_code'],
-        right_on=['Arr Actual Arrival Time', 'washroom_name'],
-        how='inner'
-    )
-
-    # Task counts per (time, washroom) without staff names
-    washrooms_hourly_no_names = (
-        tasks_washroom_filtered_merged
-        .set_index('DateTime')
-        .resample(resampling_period)['washroom_code']
-        .value_counts()
-        .unstack()
-    )
-
-    washrooms_hourly_no_names_stacked = (
-        washrooms_hourly_no_names
-        .stack()
-        .to_frame('task_counts')
-        .rename_axis(['DateTime', 'washroom_code'])
-        .reset_index()
-    )
-
-    percentage_happy_tasks_flights_merged_decayed_washrooms = (
-        percentage_happy_tasks_flights_merged_decayed.merge(
-            washrooms_hourly_no_names_stacked,
-            left_on=['DateTime', 'washroom_code'],
-            right_on=['DateTime', 'washroom_code'],
-            how='inner'
-        )
-    )
-
-    percentage_happy_tasks_flights_merged_decayed_ratings = (
-        percentage_happy_tasks_flights_merged_decayed_washrooms.merge(
-            number_of_hourly_ratings,
-            left_on=['DateTime', 'washroom_code'],
-            right_on=[UTC_DATETIME_COL, 'washroom_code'],
-            how='inner'
-        )
-    )
-
-    # --- 2.8. Final X, y for modeling ---
-
-    df_model = percentage_happy_tasks_flights_merged_decayed_ratings.copy()
-
-    target_col = 'percentage_happy'
-    drop_cols = [
-        'DateTime',
-        'washroom_code',
-        target_col,
-        'Arr Actual Arrival Time',
-        'washroom_name',
-        UTC_DATETIME_COL
-    ]
-    drop_cols = [c for c in drop_cols if c in df_model.columns]
-
-    X = df_model.drop(columns=drop_cols)
-    y = df_model[target_col]
-
-    return X, y
-
+UTC_DATETIME_COL = happy_or_not_filtered.columns[0]
+LOCAL_DATETIME_COL = "local_datetime"
 
 # ============================================================
-# 3. HYPERPARAMETER TUNING
+# 3. HYPERPARAMETER TUNING WITH TIME SERIES SPLIT
 # ============================================================
 
 if __name__ == "__main__":
 
     # Dataset-specific hyperparameters
     resampling_period_grid = ['1H', '2H', '4H', '8H', '12H', '24H']
-    decay_param_grid = np.linspace(0.0, 0.5, 11)   # 0.00, 0.05, ..., 0.50
+    decay_param_grid = np.linspace(0.0, 0.03, 11)   # 0.00, 0.003, ..., 0.03
     distance_source_grid = ['path', 'euclidean']
 
     # LightGBM hyperparameter distributions (reasonable defaults; tweak as needed)
@@ -491,11 +331,21 @@ if __name__ == "__main__":
 
                 # Build dataset for this config
                 try:
-                    X, y = build_dataset(
+                    X, y, _, _, _ = build_dataset(
                         resampling_period=resampling_period,
                         decay_param=decay_param,
-                        distance_source=distance_source
-                    )
+                        distance_source=distance_source,
+                        happy_or_not_filtered=happy_or_not_filtered,
+                        UTC_DATETIME_COL=UTC_DATETIME_COL,
+                        LOCAL_DATETIME_COL=LOCAL_DATETIME_COL,
+                        tasks_washroom_filtered_merged=tasks_washroom_filtered_merged,
+                        flight_info=flight_info,
+                        flight_info_departures=flight_info_departures,
+                        DISTANCE_TABLES_ARRIVALS=DISTANCE_TABLES_ARRIVALS,
+                        DISTANCE_TABLES_DEPARTURES=DISTANCE_TABLES_DEPARTURES,
+                        df_wait_raw=df_wait_raw
+                )
+                    
                 except Exception as e:
                     print(f"Skipping config due to error during dataset build: {e}")
                     continue
@@ -504,12 +354,22 @@ if __name__ == "__main__":
                     print("Skipping config (empty X or y).")
                     continue
 
-                # Train/test split (held-out set used for final R2/MSE evaluation)
-                X_train, X_test, y_train, y_test = train_test_split(
-                    X, y,
-                    test_size=0.2,
-                    random_state=42
-                )
+                # Ensure X and y are aligned and ordered in time (already sorted in build_dataset)
+                n_samples = len(X)
+                if n_samples < 10:
+                    print("Skipping config (too few samples for time series split).")
+                    continue
+
+                # Chronological train/test split: last 20% as held-out test set
+                test_size = max(1, int(0.2 * n_samples))
+
+                X_train = X.iloc[:-test_size, :]
+                y_train = y.iloc[:-test_size]
+                X_test = X.iloc[-test_size:, :]
+                y_test = y.iloc[-test_size:]
+
+                # TimeSeriesSplit for walk-forward CV on the training set (expanding window)
+                tscv = TimeSeriesSplit(n_splits=3)
 
                 base_estimator = LGBMRegressor(
                     objective='regression',
@@ -522,7 +382,7 @@ if __name__ == "__main__":
                     param_distributions=lgbm_param_distributions,
                     n_iter=n_iters_lgbm,
                     scoring='r2',       # optimize R²
-                    cv=3,
+                    cv=tscv,            # TimeSeriesSplit cross-validation
                     random_state=42,
                     n_jobs=-1,
                     verbose=1
@@ -541,6 +401,7 @@ if __name__ == "__main__":
                 r2 = r2_score(y_test, y_pred)
 
                 print(f"Config R2: {r2:.4f}, MSE: {mse:.4f}")
+                print(f"Best CV R2 (TimeSeriesSplit) for this config: {search.best_score_:.4f}")
 
                 if r2 > best_overall_r2:
                     best_overall_r2 = r2
