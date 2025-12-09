@@ -88,12 +88,17 @@ results = {
 
 Each crew_schedules[crew_id] is a list of dicts:
     {
-        "start": float,        # seconds
-        "end": float,          # seconds
+        "start": ISO-8601 UTC string,
+        "end": ISO-8601 UTC string,
         "task_id": str | None,
         "restroom_id": str | None,
         "status": "cleaning" | "traveling" | ...
     }
+
+All timestamps in results (e.g. KPI "time" fields, assignment "time") are saved
+as ISO-8601 UTC strings computed as:
+
+    utc = pd.to_datetime(1704067200 + simulation_seconds, unit="s", utc=True).isoformat()
 
 ==============================================================
 """
@@ -110,6 +115,9 @@ import json
 import pdb
 import argparse
 from collections import defaultdict
+
+# Base UNIX epoch for midnight January 1st, 2024 UTC
+BASE_UNIX_EPOCH_2024 = 1704067200
 
 
 class CrewStatus(Enum):
@@ -135,8 +143,8 @@ class CleaningCrewMember:
     name: str
     status: CrewStatus
     current_location: str  # Current restroom or base location
-    shift_start: float  # Start time in seconds
-    shift_end: float    # End time in seconds
+    shift_start: float  # Start time in seconds (since daily 0:00)
+    shift_end: float    # End time in seconds (since daily 0:00)
     hourly_rate: float  # USD per hour
     skill_level: float  # 1.0-2.0 multiplier for cleaning efficiency
     break_time_remaining: float = 0.0
@@ -185,7 +193,7 @@ class CleaningCrewOptimizer:
             config_path: Path to crew configuration JSON file
         """
         self.restrooms = restrooms
-        self.travel_time_matrix = travel_time_matrix  # 🔴 store the mandatory matrix
+        self.travel_time_matrix = travel_time_matrix  # store the mandatory matrix
         self.simulation_duration = simulation_duration
         self.dt = dt
         self.time_steps = np.arange(0, simulation_duration, dt)
@@ -412,8 +420,10 @@ class CleaningCrewOptimizer:
         return (0.3 * arrival_impact + 0.4 * queue_impact + 0.3 * wait_impact) * 100
     
     def _is_crew_available(self, crew: CleaningCrewMember, current_time: float) -> bool:
-        """Check if crew member is available for assignment."""
-        if current_time < crew.shift_start or current_time > crew.shift_end:
+        """Check if crew member is available for assignment (repeating daily shifts)."""
+        seconds_per_day = 24.0 * 3600.0
+        time_in_day = current_time % seconds_per_day
+        if time_in_day < crew.shift_start or time_in_day > crew.shift_end:
             return False
         if crew.status in [CrewStatus.CLEANING, CrewStatus.TRAVELING, CrewStatus.BREAK]:
             if crew.current_task_end_time > current_time:
@@ -629,8 +639,6 @@ class CleaningCrewOptimizer:
             raise KeyError(f"Missing travel time {from_wc} → {to_wc} in travel_time_matrix")
 
         return self.travel_time_matrix[from_wc][to_wc]
-
-
     
     def _record_crew_event(self, crew: CleaningCrewMember,
                            start_time: float,
@@ -638,7 +646,7 @@ class CleaningCrewOptimizer:
                            task_id: Optional[str],
                            restroom_id: Optional[str],
                            status: CrewStatus):
-        """Append an event to this crew member's schedule."""
+        """Append an event to this crew member's schedule (still in simulation seconds here)."""
         self.crew_schedules[crew.crew_id].append({
             "start": start_time,
             "end": end_time,
@@ -752,14 +760,15 @@ class CleaningCrewOptimizer:
             priority = 1
             task_type = CleaningType.CALL_IN
             
-            if max_waiting_time > 640:   # Changed to give more realistic outcomes from 120
+            # These thresholds can be adjusted; currently set to larger values
+            if max_waiting_time > 640:
                 emergency_triggered = True
                 priority = 5
                 task_type = CleaningType.EMERGENCY
-            elif max_waiting_time > 480:   # Changed to give more realistic outcomes from 60
+            elif max_waiting_time > 480:
                 call_in_triggered = True
                 priority = 4
-            elif max_waiting_time > 360:    # Changed to give more realistic outcomes from 30
+            elif max_waiting_time > 360:
                 call_in_triggered = True
                 priority = 3
             
@@ -939,14 +948,16 @@ class CleaningCrewOptimizer:
         
         # 1. Cost
         total_cost = 0.0
+        total_days = self.simulation_duration / (24.0 * 3600.0)
         for crew in self.crew_members:
             hours_worked = crew.total_work_time / 60.0
-            shift_duration = (crew.shift_end - crew.shift_start) / 3600.0
-            if hours_worked <= shift_duration:
+            shift_duration_per_day = (crew.shift_end - crew.shift_start) / 3600.0
+            scheduled_hours = shift_duration_per_day * total_days
+            if hours_worked <= scheduled_hours:
                 total_cost += hours_worked * crew.hourly_rate
             else:
-                regular_cost = shift_duration * crew.hourly_rate
-                overtime_hours = hours_worked - shift_duration
+                regular_cost = scheduled_hours * crew.hourly_rate
+                overtime_hours = hours_worked - scheduled_hours
                 overtime_cost = overtime_hours * crew.hourly_rate * self.overtime_multiplier
                 total_cost += regular_cost + overtime_cost
         
@@ -987,7 +998,12 @@ class CleaningCrewOptimizer:
         kpis['passenger_satisfaction'] = float(np.mean(satisfaction_scores)) if satisfaction_scores else 85.0
         
         # 4. Crew utilisation
-        active_crew = sum(1 for c in self.crew_members if c.shift_start <= current_time <= c.shift_end)
+        seconds_per_day = 24.0 * 3600.0
+        time_in_day = current_time % seconds_per_day
+        active_crew = sum(
+            1 for c in self.crew_members
+            if c.shift_start <= time_in_day <= c.shift_end
+        )
         busy_crew = sum(1 for c in self.crew_members if c.status in [CrewStatus.CLEANING, CrewStatus.TRAVELING])
         kpis['crew_utilization'] = (busy_crew / active_crew * 100.0) if active_crew > 0 else 0.0
         
@@ -1012,10 +1028,11 @@ class CleaningCrewOptimizer:
         # 7. Overtime hours
         overtime_hours = 0.0
         for c in self.crew_members:
-            shift_duration = (c.shift_end - c.shift_start) / 3600.0
+            shift_duration_per_day = (c.shift_end - c.shift_start) / 3600.0
+            scheduled_hours = shift_duration_per_day * total_days
             hours_worked = c.total_work_time / 60.0
-            if hours_worked > shift_duration:
-                overtime_hours += (hours_worked - shift_duration)
+            if hours_worked > scheduled_hours:
+                overtime_hours += (hours_worked - scheduled_hours)
         kpis['overtime_hours'] = overtime_hours
         
         # 8. Cleaning quality score
@@ -1037,7 +1054,7 @@ class CleaningCrewOptimizer:
             quality_scores.append(min(100.0, base_quality))
         kpis['cleaning_quality_score'] = float(np.mean(quality_scores)) if quality_scores else 80.0
         
-        # 9. Disruption cost (here always 0 unless you manually change task.disruption_cost)
+        # 9. Disruption cost
         total_disruption_cost = sum(t.disruption_cost for t in self.completed_tasks)
         kpis['disruption_cost'] = total_disruption_cost
         
@@ -1058,14 +1075,16 @@ class CleaningCrewOptimizer:
             'emergency_cost': 0.0,
             'restock_cost': getattr(self, 'total_restock_cost', 0.0)
         }
+        total_days = self.simulation_duration / (24.0 * 3600.0)
         for c in self.crew_members:
             hours_worked = c.total_work_time / 60.0
-            shift_duration = (c.shift_end - c.shift_start) / 3600.0
-            if hours_worked <= shift_duration:
+            shift_duration_per_day = (c.shift_end - c.shift_start) / 3600.0
+            scheduled_hours = shift_duration_per_day * total_days
+            if hours_worked <= scheduled_hours:
                 breakdown['labor_cost'] += hours_worked * c.hourly_rate
             else:
-                breakdown['labor_cost'] += shift_duration * c.hourly_rate
-                overtime_hours = hours_worked - shift_duration
+                breakdown['labor_cost'] += scheduled_hours * c.hourly_rate
+                overtime_hours = hours_worked - scheduled_hours
                 breakdown['overtime_cost'] += overtime_hours * c.hourly_rate * self.overtime_multiplier
         
         breakdown['supply_cost'] = len(self.completed_tasks) * self.supply_cost_per_cleaning
@@ -1081,10 +1100,12 @@ class CleaningCrewOptimizer:
         score += len(tasks) * 2
         emergency_tasks = [t for t in tasks if t.priority >= 4]
         score += len(emergency_tasks) * 5
-        shift_duration = (crew.shift_end - crew.shift_start) / 3600.0
+        shift_duration_per_day = (crew.shift_end - crew.shift_start) / 3600.0
+        total_days = self.simulation_duration / (24.0 * 3600.0)
+        scheduled_hours = shift_duration_per_day * total_days
         hours_worked = crew.total_work_time / 60.0
-        if hours_worked > shift_duration:
-            penalty = (hours_worked - shift_duration) * 3.0
+        if hours_worked > scheduled_hours:
+            penalty = (hours_worked - scheduled_hours) * 3.0
             score -= penalty
         return max(0.0, min(100.0, score))
     
@@ -1103,8 +1124,7 @@ class CleaningCrewOptimizer:
                 'emergency_tasks': len([t for t in tasks_completed if t.priority >= 4]),
                 'efficiency_score': self._calculate_efficiency_score(crew, tasks_completed)
             }
-        return performance
-    
+        return performance    
     def _summarize_tasks(self) -> Dict:
         total_tasks = len(self.cleaning_tasks)
         completed_tasks = len(self.completed_tasks)
@@ -1133,7 +1153,49 @@ class CleaningCrewOptimizer:
                 if count > 0.8 * getattr(self, 'usage_threshold_for_cleaning', 15)
             ])
         }
-    
+
+    # ---------------- TIMESTAMP CONVERSION (RESULTS) ----------------
+
+    def _to_utc_iso(self, sim_seconds: float) -> str:
+        """
+        Convert simulation seconds to ISO-8601 UTC string by adding
+        BASE_UNIX_EPOCH_2024 and converting as a UNIX timestamp.
+        """
+        return pd.to_datetime(BASE_UNIX_EPOCH_2024 + sim_seconds,
+                              unit="s", utc=True).isoformat()
+
+    def _convert_results_times_to_utc(self, results: Dict) -> None:
+        """
+        Convert every timestamp stored in the results dict to ISO-8601 UTC strings
+        by adding BASE_UNIX_EPOCH_2024 to each simulation time (in seconds).
+        This only changes the saved outputs; internal state remains in seconds.
+        """
+        # 1. KPI timeline 'time' fields
+        for entry in results.get('kpi_timeline', []):
+            if 'time' in entry and isinstance(entry['time'], (int, float)):
+                entry['time'] = self._to_utc_iso(entry['time'])
+
+        # 2. Final KPIs 'time'
+        if 'final_kpis' in results and isinstance(results['final_kpis'], dict):
+            if 'time' in results['final_kpis'] and isinstance(results['final_kpis']['time'], (int, float)):
+                results['final_kpis']['time'] = self._to_utc_iso(results['final_kpis']['time'])
+
+        # 3. Crew assignments 'time'
+        for entry in results.get('crew_assignments', []):
+            if 'time' in entry and isinstance(entry['time'], (int, float)):
+                entry['time'] = self._to_utc_iso(entry['time'])
+
+        # 4. Crew schedules 'start' and 'end'
+        schedules = results.get('crew_schedules', {})
+        for crew_id, events in schedules.items():
+            for ev in events:
+                if 'start' in ev and isinstance(ev['start'], (int, float)):
+                    ev['start'] = self._to_utc_iso(ev['start'])
+                if 'end' in ev and isinstance(ev['end'], (int, float)):
+                    ev['end'] = self._to_utc_iso(ev['end'])
+
+        # (We leave simulation_duration, simulation_dt, etc. as numeric durations.)
+
     # ---------------- MAIN SIMULATION ----------------
     
     def run_optimization(self,
@@ -1148,7 +1210,7 @@ class CleaningCrewOptimizer:
         
         Returns:
             results dict with KPIs, costs, crew performance, task summary,
-            AND crew_schedules.
+            AND crew_schedules (with timestamps converted to UTC ISO strings).
         """
         results = {
             'kpi_timeline': [],
@@ -1158,7 +1220,7 @@ class CleaningCrewOptimizer:
             'cost_breakdown': {},
             'crew_performance': {},
             'task_summary': {},
-            'crew_schedules': {}   # will be filled at the end
+            'crew_schedules': {}
         }
         
         # Inputs
@@ -1212,6 +1274,9 @@ class CleaningCrewOptimizer:
         results['simulation_duration'] = self.simulation_duration
         results['simulation_dt'] = self.dt
         results['total_time_steps'] = len(self.time_steps)
+
+        # Convert all saved timestamps in results to ISO-8601 UTC strings
+        self._convert_results_times_to_utc(results)
         
         print("Cleaning crew optimization completed!")
         return results
@@ -1485,7 +1550,7 @@ if __name__ == "__main__":
         cleaning_requirements=cleaning_requirements_list,
     )
 
-    # 6. Basic inspection of outputs (kept similar to original example)
+    # 6. Basic inspection of outputs (now timestamps are ISO-8601 UTC strings)
     print("\nFinal KPIs:")
     for k, v in results["final_kpis"].items():
         if k != "time":
