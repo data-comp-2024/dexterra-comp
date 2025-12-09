@@ -1,0 +1,62 @@
+{
+    "FE2097": {
+        "floor": 2,
+        "capacity_M": 0.4,
+        "capacity_F": 0.0
+    },
+    "FE2095": {
+        "floor": 2,
+        "capacity_M": 0.0,
+        "capacity_F": 0.4
+    },
+    "FF2025": {
+        "floor": 2,
+        "capacity_M": 0.4,
+        "capacity_F": 0.0
+    },
+    "FF2031": {
+        "floor": 2,
+        "capacity_M": 0.0,
+        "capacity_F": 0.4
+    },
+    "FG2057": {
+        "floor": 2,
+        "capacity_M": 0.0,
+        "capacity_F": 0.4
+    },
+    "FG2043": {
+        "floor": 2,
+        "capacity_M": 0.0,
+        "capacity_F": 0.4
+    },
+    "FG2037": {
+        "floor": 2,
+        "capacity_M": 0.4,
+        "capacity_F": 0.0
+    },
+    "FG2085": {
+        "floor": 2,
+        "capacity_M": 0.4,
+        "capacity_F": 0.0
+    },
+    "FG2041": {
+        "floor": 2,
+        "capacity_M": 0.4,
+        "capacity_F": 0.0
+    },
+    "FG2035": {
+        "floor": 2,
+        "capacity_M": 0.0,
+        "capacity_F": 0.4
+    },
+    "FG2089": {
+        "floor": 2,
+        "capacity_M": 0.0,
+        "capacity_F": 0.4
+    },
+    "FG2055": {
+        "floor": 2,
+        "capacity_M": 0.4,
+        "capacity_F": 0.0
+    }
+}

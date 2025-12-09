@@ -1,0 +1,419 @@
+{
+  "CREW_001": [
+    {
+      "start": 10560.0,
+      "end": 11479.76662004175,
+      "task_id": "ROUTINE_0028",
+      "restroom_id": "FG2089",
+      "status": "cleaning"
+    },
+    {
+      "start": 22920.0,
+      "end": 23820.0,
+      "task_id": "ROUTINE_0029",
+      "restroom_id": "FG2089",
+      "status": "cleaning"
+    },
+    {
+      "start": 27000.0,
+      "end": 27904.90855209757,
+      "task_id": "ROUTINE_0026",
+      "restroom_id": "FG2085",
+      "status": "cleaning"
+    }
+  ],
+  "CREW_002": [],
+  "CREW_003": [],
+  "CREW_004": [
+    {
+      "start": 18000.0,
+      "end": 19223.26892671396,
+      "task_id": "CALLIN_1000",
+      "restroom_id": "FF2031",
+      "status": "cleaning"
+    },
+    {
+      "start": 19260.0,
+      "end": 20760.0,
+      "task_id": "EMERGENCY_2000",
+      "restroom_id": "FF2031",
+      "status": "cleaning"
+    }
+  ],
+  "CREW_005": [
+    {
+      "start": 3300.0,
+      "end": 4264.918680154809,
+      "task_id": "ROUTINE_0001",
+      "restroom_id": "FE2095",
+      "status": "cleaning"
+    },
+    {
+      "start": 6840.0,
+      "end": 7745.9220792229235,
+      "task_id": "ROUTINE_0017",
+      "restroom_id": "FE2097",
+      "status": "cleaning"
+    },
+    {
+      "start": 8400.0,
+      "end": 9305.922079222923,
+      "task_id": "ROUTINE_0002",
+      "restroom_id": "FE2095",
+      "status": "cleaning"
+    },
+    {
+      "start": 13500.0,
+      "end": 14400.0,
+      "task_id": "ROUTINE_0003",
+      "restroom_id": "FE2095",
+      "status": "cleaning"
+    },
+    {
+      "start": 15480.0,
+      "end": 16385.922079222924,
+      "task_id": "ROUTINE_0018",
+      "restroom_id": "FE2097",
+      "status": "cleaning"
+    },
+    {
+      "start": 18540.0,
+      "end": 19445.922079222924,
+      "task_id": "ROUTINE_0004",
+      "restroom_id": "FE2095",
+      "status": "cleaning"
+    },
+    {
+      "start": 19500.0,
+      "end": 20562.633712704403,
+      "task_id": null,
+      "restroom_id": null,
+      "status": "traveling"
+    },
+    {
+      "start": 23640.0,
+      "end": 24540.0,
+      "task_id": "ROUTINE_0005",
+      "restroom_id": "FE2095",
+      "status": "cleaning"
+    },
+    {
+      "start": 28740.0,
+      "end": 29640.0,
+      "task_id": "ROUTINE_0006",
+      "restroom_id": "FE2095",
+      "status": "cleaning"
+    }
+  ],
+  "CREW_006": [
+    {
+      "start": 35280.0,
+      "end": 36199.76662004175,
+      "task_id": "ROUTINE_0030",
+      "restroom_id": "FG2089",
+      "status": "cleaning"
+    },
+    {
+      "start": 47580.0,
+      "end": 48480.0,
+      "task_id": "ROUTINE_0031",
+      "restroom_id": "FG2089",
+      "status": "cleaning"
+    },
+    {
+      "start": 55800.0,
+      "end": 56704.90855209757,
+      "task_id": "ROUTINE_0027",
+      "restroom_id": "FG2085",
+      "status": "cleaning"
+    }
+  ],
+  "CREW_007": [
+    {
+      "start": 54000.0,
+      "end": 55224.03713502465,
+      "task_id": "CALLIN_1003",
+      "restroom_id": "FG2035",
+      "status": "cleaning"
+    }
+  ],
+  "CREW_008": [],
+  "CREW_009": [
+    {
+      "start": 55800.0,
+      "end": 57025.68845843964,
+      "task_id": "CALLIN_1005",
+      "restroom_id": "FF2025",
+      "status": "cleaning"
+    }
+  ],
+  "CREW_010": [
+    {
+      "start": 32760.0,
+      "end": 33728.796786979,
+      "task_id": "ROUTINE_0020",
+      "restroom_id": "FE2097",
+      "status": "cleaning"
+    },
+    {
+      "start": 33780.0,
+      "end": 34685.922079222924,
+      "task_id": "ROUTINE_0007",
+      "restroom_id": "FE2095",
+      "status": "cleaning"
+    },
+    {
+      "start": 38880.0,
+      "end": 39780.0,
+      "task_id": "ROUTINE_0008",
+      "restroom_id": "FE2095",
+      "status": "cleaning"
+    },
+    {
+      "start": 41400.0,
+      "end": 42305.922079222924,
+      "task_id": "ROUTINE_0021",
+      "restroom_id": "FE2097",
+      "status": "cleaning"
+    },
+    {
+      "start": 43980.0,
+      "end": 44885.922079222924,
+      "task_id": "ROUTINE_0009",
+      "restroom_id": "FE2095",
+      "status": "cleaning"
+    },
+    {
+      "start": 49080.0,
+      "end": 49980.0,
+      "task_id": "ROUTINE_0010",
+      "restroom_id": "FE2095",
+      "status": "cleaning"
+    },
+    {
+      "start": 49980.0,
+      "end": 51042.6337127044,
+      "task_id": null,
+      "restroom_id": null,
+      "status": "traveling"
+    },
+    {
+      "start": 54120.0,
+      "end": 55020.0,
+      "task_id": "ROUTINE_0011",
+      "restroom_id": "FE2095",
+      "status": "cleaning"
+    },
+    {
+      "start": 55800.0,
+      "end": 57000.0,
+      "task_id": "CALLIN_1004",
+      "restroom_id": "FE2095",
+      "status": "cleaning"
+    }
+  ],
+  "CREW_011": [
+    {
+      "start": 59940.0,
+      "end": 60859.76662004175,
+      "task_id": "ROUTINE_0032",
+      "restroom_id": "FG2089",
+      "status": "cleaning"
+    },
+    {
+      "start": 72300.0,
+      "end": 73200.0,
+      "task_id": "ROUTINE_0033",
+      "restroom_id": "FG2089",
+      "status": "cleaning"
+    }
+  ],
+  "CREW_012": [],
+  "CREW_013": [],
+  "CREW_014": [
+    {
+      "start": 58680.0,
+      "end": 59684.697900128,
+      "task_id": "ROUTINE_0023",
+      "restroom_id": "FE2097",
+      "status": "cleaning"
+    },
+    {
+      "start": 66600.0,
+      "end": 67800.0,
+      "task_id": "CALLIN_1008",
+      "restroom_id": "FE2097",
+      "status": "cleaning"
+    },
+    {
+      "start": 69360.0,
+      "end": 70265.92207922292,
+      "task_id": "ROUTINE_0014",
+      "restroom_id": "FE2095",
+      "status": "cleaning"
+    },
+    {
+      "start": 74460.0,
+      "end": 75360.0,
+      "task_id": "ROUTINE_0015",
+      "restroom_id": "FE2095",
+      "status": "cleaning"
+    },
+    {
+      "start": 75600.0,
+      "end": 76800.0,
+      "task_id": "CALLIN_1015",
+      "restroom_id": "FE2095",
+      "status": "cleaning"
+    },
+    {
+      "start": 79560.0,
+      "end": 80460.0,
+      "task_id": "ROUTINE_0016",
+      "restroom_id": "FE2095",
+      "status": "cleaning"
+    },
+    {
+      "start": 80460.0,
+      "end": 81522.63371270441,
+      "task_id": null,
+      "restroom_id": null,
+      "status": "traveling"
+    }
+  ],
+  "CREW_015": [
+    {
+      "start": 58500.0,
+      "end": 59768.796786979,
+      "task_id": "CALLIN_1006",
+      "restroom_id": "FE2097",
+      "status": "cleaning"
+    },
+    {
+      "start": 67320.0,
+      "end": 68220.0,
+      "task_id": "ROUTINE_0024",
+      "restroom_id": "FE2097",
+      "status": "cleaning"
+    },
+    {
+      "start": 75600.0,
+      "end": 76800.0,
+      "task_id": "CALLIN_1014",
+      "restroom_id": "FE2097",
+      "status": "cleaning"
+    }
+  ],
+  "CREW_016": [],
+  "CREW_017": [],
+  "CREW_018": [],
+  "CREW_019": [],
+  "CREW_020": [],
+  "CREW_021": [
+    {
+      "start": 18900.0,
+      "end": 20168.796786979,
+      "task_id": "CALLIN_1001",
+      "restroom_id": "FE2097",
+      "status": "cleaning"
+    },
+    {
+      "start": 24120.0,
+      "end": 25020.0,
+      "task_id": "ROUTINE_0019",
+      "restroom_id": "FE2097",
+      "status": "cleaning"
+    }
+  ],
+  "CREW_022": [],
+  "CREW_023": [],
+  "CREW_024": [],
+  "CREW_025": [],
+  "CREW_026": [
+    {
+      "start": 50040.0,
+      "end": 51008.796786979,
+      "task_id": "ROUTINE_0022",
+      "restroom_id": "FE2097",
+      "status": "cleaning"
+    },
+    {
+      "start": 54000.0,
+      "end": 55200.0,
+      "task_id": "CALLIN_1002",
+      "restroom_id": "FE2097",
+      "status": "cleaning"
+    }
+  ],
+  "CREW_027": [],
+  "CREW_028": [],
+  "CREW_029": [],
+  "CREW_030": [
+    {
+      "start": 59220.0,
+      "end": 60221.22952642032,
+      "task_id": "ROUTINE_0012",
+      "restroom_id": "FE2095",
+      "status": "cleaning"
+    },
+    {
+      "start": 64320.0,
+      "end": 65220.0,
+      "task_id": "ROUTINE_0013",
+      "restroom_id": "FE2095",
+      "status": "cleaning"
+    },
+    {
+      "start": 66600.0,
+      "end": 67800.0,
+      "task_id": "CALLIN_1009",
+      "restroom_id": "FE2095",
+      "status": "cleaning"
+    },
+    {
+      "start": 69300.0,
+      "end": 70578.35344189117,
+      "task_id": "CALLIN_1012",
+      "restroom_id": "FF2031",
+      "status": "cleaning"
+    },
+    {
+      "start": 72000.0,
+      "end": 73200.0,
+      "task_id": "CALLIN_1013",
+      "restroom_id": "FF2031",
+      "status": "cleaning"
+    }
+  ],
+  "CREW_031": [
+    {
+      "start": 58500.0,
+      "end": 59764.918680154806,
+      "task_id": "CALLIN_1007",
+      "restroom_id": "FE2095",
+      "status": "cleaning"
+    },
+    {
+      "start": 66600.0,
+      "end": 67875.55399225626,
+      "task_id": "CALLIN_1010",
+      "restroom_id": "FF2025",
+      "status": "cleaning"
+    },
+    {
+      "start": 69300.0,
+      "end": 70500.0,
+      "task_id": "CALLIN_1011",
+      "restroom_id": "FF2025",
+      "status": "cleaning"
+    },
+    {
+      "start": 75960.0,
+      "end": 76939.10263532352,
+      "task_id": "ROUTINE_0025",
+      "restroom_id": "FE2097",
+      "status": "cleaning"
+    }
+  ],
+  "CREW_032": []
+}
