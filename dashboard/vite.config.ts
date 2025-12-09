@@ -14,5 +14,7 @@ export default defineConfig({
     port: 3000,
     open: true,
   },
+  // Configure static file serving - data folder should be accessible
+  publicDir: 'data', // Serve data folder as public assets at root
 })
 

@@ -199,11 +199,255 @@ export async function loadSimulationData(
 }
 
 /**
+ * Load Happy Score monthly time series data from CSV
+ * Format: Monthly aggregated data with Date, Happy Index, and Bathroom columns
+ */
+async function loadMonthlyHappyScoreData(washrooms: Washroom[] = []): Promise<HappyScore[]> {
+  try {
+    const possiblePaths = [
+      '/df_monthly_distribution.csv', // Since publicDir is 'data', files are at root
+      'data/df_monthly_distribution.csv',
+      '/data/df_monthly_distribution.csv',
+      './data/df_monthly_distribution.csv',
+      '../data/df_monthly_distribution.csv',
+      `${DATA_ROOT}/df_monthly_distribution.csv`,
+    ]
+
+    let text: string | null = null
+    for (const csvPath of possiblePaths) {
+      try {
+        const response = await fetch(csvPath)
+        if (response.ok) {
+          text = await response.text()
+          break
+        }
+      } catch (error) {
+        continue
+      }
+    }
+
+    if (!text) {
+      return []
+    }
+
+    return new Promise((resolve) => {
+      Papa.parse(text, {
+        header: true,
+        delimiter: ',',
+        skipEmptyLines: true,
+        transformHeader: (header) => header.trim(),
+        complete: (results) => {
+          if (results.errors.length > 0) {
+            console.warn('Monthly Happy Score CSV parsing warnings:', results.errors.slice(0, 5))
+          }
+
+          if (!results.data || results.data.length === 0) {
+            resolve([])
+            return
+          }
+
+          const happyScores: HappyScore[] = []
+
+          // Log first row for debugging
+          if (results.data.length > 0) {
+            console.log('Sample monthly CSV row:', results.data[0])
+            console.log('Available columns:', Object.keys(results.data[0]))
+          }
+
+          results.data.forEach((row: any, index: number) => {
+            try {
+              const bathroomId = String(row.Bathroom || '').trim()
+              if (!bathroomId) {
+                if (index < 3) console.warn(`Row ${index}: Missing Bathroom ID`, row)
+                return
+              }
+
+              // Parse date - Year column contains the date string (e.g., "2024-01-01")
+              // Date column appears to be empty, so use Year column
+              let dateStr = String(row.Year || row.Date || '').trim()
+              if (!dateStr && row.Year && row.Month) {
+                // Fallback: construct date from Year and Month if Year is numeric
+                const year = parseInt(String(row.Year), 10)
+                const month = parseInt(String(row.Month), 10)
+                if (!isNaN(year) && !isNaN(month)) {
+                  dateStr = `${year}-${String(month).padStart(2, '0')}-01`
+                }
+              }
+              if (!dateStr) {
+                if (index < 3) console.warn(`Row ${index}: Missing date`, row)
+                return
+              }
+
+              let timestamp: Date
+              try {
+                timestamp = new Date(dateStr)
+                if (isNaN(timestamp.getTime())) {
+                  if (index < 3) console.warn(`Row ${index}: Invalid date string: ${dateStr}`)
+                  return
+                }
+              } catch {
+                if (index < 3) console.warn(`Row ${index}: Date parsing error: ${dateStr}`)
+                return
+              }
+
+              // Parse Happy Index (already 0-100 scale)
+              const happyIndex = parseFloat(String(row['Happy Index'] || '0'))
+              if (isNaN(happyIndex) || happyIndex < 0 || happyIndex > 100) {
+                if (index < 3) console.warn(`Row ${index}: Invalid Happy Index: ${row['Happy Index']}`)
+                return
+              }
+
+              happyScores.push({
+                washroomId: bathroomId,
+                score: Math.round(happyIndex),
+                timestamp,
+                source: 'aggregated',
+                windowMinutes: 30 * 24 * 60, // Monthly aggregation (~30 days)
+              })
+            } catch (error) {
+              if (index < 10) {
+                console.warn(`Skipping malformed monthly Happy Score row ${index}:`, error, row)
+              }
+            }
+          })
+
+          console.log(`Loaded ${happyScores.length} monthly Happy Score entries from CSV`)
+          resolve(happyScores)
+        },
+        error: (error: unknown) => {
+          console.warn('Monthly Happy Score CSV parsing error:', error)
+          resolve([])
+        },
+      })
+    })
+  } catch (error: unknown) {
+    console.warn('Failed to load monthly Happy Score data:', error)
+    return []
+  }
+}
+
+/**
+ * Load Happy Score hourly distribution data from CSV
+ * Format: Hourly aggregated data with Time, Happy Index, and Bathroom columns
+ */
+async function loadHourlyHappyScoreData(washrooms: Washroom[] = []): Promise<HappyScore[]> {
+  try {
+    const possiblePaths = [
+      '/bathroom_hourly_distribution.csv', // Since publicDir is 'data', files are at root
+      'data/bathroom_hourly_distribution.csv',
+      '/data/bathroom_hourly_distribution.csv',
+      './data/bathroom_hourly_distribution.csv',
+      '../data/bathroom_hourly_distribution.csv',
+      `${DATA_ROOT}/bathroom_hourly_distribution.csv`,
+    ]
+
+    let text: string | null = null
+    for (const csvPath of possiblePaths) {
+      try {
+        const response = await fetch(csvPath)
+        if (response.ok) {
+          text = await response.text()
+          break
+        }
+      } catch (error) {
+        continue
+      }
+    }
+
+    if (!text) {
+      return []
+    }
+
+    return new Promise((resolve) => {
+      Papa.parse(text, {
+        header: true,
+        delimiter: ',',
+        skipEmptyLines: true,
+        transformHeader: (header) => header.trim(),
+        complete: (results) => {
+          if (results.errors.length > 0) {
+            console.warn('Hourly Happy Score CSV parsing warnings:', results.errors.slice(0, 5))
+          }
+
+          if (!results.data || results.data.length === 0) {
+            resolve([])
+            return
+          }
+
+          const happyScores: HappyScore[] = []
+          const baseDate = new Date('2024-01-01') // Use 2024 as base year
+
+          results.data.forEach((row: any, index: number) => {
+            try {
+              const bathroomId = String(row.Bathroom || '').trim()
+              if (!bathroomId) return
+
+              // Parse time (format: HH:MM:SS or HH:MM)
+              const timeStr = String(row.Time || '').trim()
+              if (!timeStr) return
+
+              const [hours, minutes] = timeStr.split(':').map(Number)
+              if (isNaN(hours) || isNaN(minutes)) return
+
+              // Create timestamp using base date + time
+              const timestamp = new Date(baseDate)
+              timestamp.setHours(hours, minutes || 0, 0, 0)
+
+              // Parse Happy Index (already 0-100 scale)
+              const happyIndex = parseFloat(String(row['Happy Index'] || '0'))
+              if (isNaN(happyIndex) || happyIndex < 0 || happyIndex > 100) return
+
+              happyScores.push({
+                washroomId: bathroomId,
+                score: Math.round(happyIndex),
+                timestamp,
+                source: 'aggregated',
+                windowMinutes: 60, // Hourly aggregation
+              })
+            } catch (error) {
+              if (index < 10) {
+                console.warn(`Skipping malformed hourly Happy Score row ${index}:`, error)
+              }
+            }
+          })
+
+          console.log(`Loaded ${happyScores.length} hourly Happy Score entries from CSV`)
+          resolve(happyScores)
+        },
+        error: (error: unknown) => {
+          console.warn('Hourly Happy Score CSV parsing error:', error)
+          resolve([])
+        },
+      })
+    })
+  } catch (error: unknown) {
+    console.warn('Failed to load hourly Happy Score data:', error)
+    return []
+  }
+}
+
+/**
  * Load Happy Score data from Happy or Not CSV
  * Format: Semicolon-delimited CSV with feedback events
+ * Now also tries loading from monthly and hourly aggregated CSVs first
  */
 export async function loadHappyScoreData(washrooms: Washroom[] = []): Promise<HappyScore[]> {
   try {
+    // First, try loading monthly time series data (preferred for time series visualization)
+    const monthlyData = await loadMonthlyHappyScoreData(washrooms)
+    if (monthlyData.length > 0) {
+      console.log(`Using monthly Happy Score data: ${monthlyData.length} entries`)
+      return monthlyData
+    }
+
+    // Fallback to hourly data
+    const hourlyData = await loadHourlyHappyScoreData(washrooms)
+    if (hourlyData.length > 0) {
+      console.log(`Using hourly Happy Score data: ${hourlyData.length} entries`)
+      return hourlyData
+    }
+
+    // Fallback to original Happy or Not CSV format
     const possiblePaths = [
       `${DATA_ROOT}/Happy or Not 2024/Happy or Not Combined Data 2024.csv`,
       '../Happy or Not 2024/Happy or Not Combined Data 2024.csv',
