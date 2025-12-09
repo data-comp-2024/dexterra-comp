@@ -141,6 +141,7 @@ function OptimizationControls({ onRunOptimization, isRunning }: OptimizationCont
               <MenuItem value="custom">Custom</MenuItem>
             </Select>
           </FormControl>
+          </Tooltip>
 
           {/* Parameter Sliders */}
           <Box>
