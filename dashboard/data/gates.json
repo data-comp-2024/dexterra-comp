@@ -1,0 +1,267 @@
+{
+    "171": {
+      "terminal": "T1",
+      "level": "2",
+      "zone": "Post Security",
+      "type": "Gate",
+      "coordinates": {
+        "x": -4572.039351432905,
+        "y": 1830.021735521836,
+        "z": 0.0
+      }
+    },
+    "172": {
+      "terminal": "T1",
+      "level": "2",
+      "zone": "Post Security",
+      "type": "Gate",
+      "coordinates": {
+        "x": -4562.944512692427,
+        "y": 1803.677641340792,
+        "z": 0.0
+      }
+    },
+    "173": {
+      "terminal": "T1",
+      "level": "2",
+      "zone": "Post Security",
+      "type": "Gate",
+      "coordinates": {
+        "x": -4549.418886557996,
+        "y": 1770.41297399829,
+        "z": 0.0
+      }
+    },
+    "174": {
+      "terminal": "T1",
+      "level": "2",
+      "zone": "Post Security",
+      "type": "Gate",
+      "coordinates": {
+        "x": -4485.942854241726,
+        "y": 1733.595328346535,
+        "z": 0.0
+      }
+    },
+    "175": {
+      "terminal": "T1",
+      "level": "2",
+      "zone": "Post Security",
+      "type": "Gate",
+      "coordinates": {
+        "x": -4423.989176142273,
+        "y": 1711.995086337899,
+        "z": 0.0
+      }
+    },
+    "176": {
+      "terminal": "T1",
+      "level": "2",
+      "zone": "Post Security",
+      "type": "Gate",
+      "coordinates": {
+        "x": -4368.004599818766,
+        "y": 1717.680588255711,
+        "z": 0.0
+      }
+    },
+    "177": {
+      "terminal": "T1",
+      "level": "2",
+      "zone": "Post Security",
+      "type": "Gate",
+      "coordinates": {
+        "x": -4314.027321192436,
+        "y": 1736.13299460957,
+        "z": 0.0
+      }
+    },
+    "178": {
+      "terminal": "T1",
+      "level": "2",
+      "zone": "Post Security",
+      "type": "Gate",
+      "coordinates": {
+        "x": -4265.411430360336,
+        "y": 1757.181997067116,
+        "z": 0.0
+      }
+    },
+    "179": {
+      "terminal": "T1",
+      "level": "2",
+      "zone": "Post Security",
+      "type": "Gate",
+      "coordinates": {
+        "x": -4228.46610338717,
+        "y": 1803.504534933878,
+        "z": 0.0
+      }
+    },
+    "180": {
+      "terminal": "T1",
+      "level": "2",
+      "zone": "Post Security",
+      "type": "Gate",
+      "coordinates": {
+        "x": -4236.850100924796,
+        "y": 1826.951245282914,
+        "z": 0.0
+      }
+    },
+    "181": {
+      "terminal": "T1",
+      "level": "2",
+      "zone": "Post Security",
+      "type": "Gate",
+      "coordinates": {
+        "x": -4272.657345350387,
+        "y": 1859.775166525546,
+        "z": 0.0
+      }
+    },
+    "170": {
+      "terminal": "T1",
+      "level": "2",
+      "zone": "Post Security",
+      "type": "Gate",
+      "coordinates": {
+        "x": -4536.261571927638,
+        "y": 1863.013852351327,
+        "z": 0.0
+      }
+    },
+    "168": {
+      "terminal": "T1",
+      "level": "2",
+      "zone": "Post Security",
+      "type": "Gate",
+      "coordinates": {
+        "x": -4335.879242728852,
+        "y": 1896.578079717138,
+        "z": 0.0
+      }
+    },
+    "169": {
+      "terminal": "T1",
+      "level": "2",
+      "zone": "Post Security",
+      "type": "Gate",
+      "coordinates": {
+        "x": -4487.835975372642,
+        "y": 1886.09470660632,
+        "z": 0.0
+      }
+    },
+    "166A": {
+      "terminal": "T1",
+      "level": "2",
+      "zone": "Post Security",
+      "type": "Gate",
+      "coordinates": {
+        "x": -4356.7423856622,
+        "y": 1960.455946473537,
+        "z": 0.0
+      }
+    },
+    "166B": {
+      "terminal": "T1",
+      "level": "2",
+      "zone": "Post Security",
+      "type": "Gate",
+      "coordinates": {
+        "x": -4359.352911946743,
+        "y": 1963.303341685364,
+        "z": 0.0
+      }
+    },
+    "167": {
+      "terminal": "T1",
+      "level": "2",
+      "zone": "Post Security",
+      "type": "Gate",
+      "coordinates": {
+        "x": -4449.993196034561,
+        "y": 1965.921314293229,
+        "z": 0.0
+      }
+    },
+    "165": {
+      "terminal": "T1",
+      "level": "2",
+      "zone": "Post Security",
+      "type": "Gate",
+      "coordinates": {
+        "x": -4460.088614361093,
+        "y": 2035.830520880574,
+        "z": 0.0
+      }
+    },
+    "164A": {
+      "terminal": "T1",
+      "level": "2",
+      "zone": "Post Security",
+      "type": "Gate",
+      "coordinates": {
+        "x": -4351.870474820826,
+        "y": 2045.55372364426,
+        "z": 0.0
+      }
+    },
+    "164B": {
+      "terminal": "T1",
+      "level": "2",
+      "zone": "Post Security",
+      "type": "Gate",
+      "coordinates": {
+        "x": -4353.381848749803,
+        "y": 2048.020879366193,
+        "z": 0.0
+      }
+    },
+    "163": {
+      "terminal": "T1",
+      "level": "2",
+      "zone": "Post Security",
+      "type": "Gate",
+      "coordinates": {
+        "x": -4461.602374642818,
+        "y": 2062.576074601054,
+        "z": 0.0
+      }
+    },
+    "162": {
+      "terminal": "T1",
+      "level": "2",
+      "zone": "Post Security",
+      "type": "Gate",
+      "coordinates": {
+        "x": -4356.210037753462,
+        "y": 2082.296700233924,
+        "z": 0.0
+      }
+    },
+    "161": {
+      "terminal": "T1",
+      "level": "2",
+      "zone": "Post Security",
+      "type": "Gate",
+      "coordinates": {
+        "x": -4445.815315873405,
+        "y": 2114.596391435764,
+        "z": 0.0
+      }
+    },
+    "160": {
+      "terminal": "T1",
+      "level": "2",
+      "zone": "Post Security",
+      "type": "Gate",
+      "coordinates": {
+        "x": -4355.231556857652,
+        "y": 2122.793777811328,
+        "z": 0.0
+      }
+    }
+  }
+  

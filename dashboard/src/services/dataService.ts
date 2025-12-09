@@ -37,6 +37,34 @@ export interface BathroomCatalogItem {
     urinals: number
   }
 }
+
+// Gate data structure from gates.json
+export interface GateItem {
+  id: string
+  terminal: string
+  level: string
+  zone: string
+  type: 'Gate'
+  coordinates: {
+    x: number
+    y: number
+    z: number
+  }
+}
+
+// Janitor Closet data structure from janitorCloset.json
+export interface JanitorClosetItem {
+  id: string
+  terminal: string
+  level: string
+  zone: string
+  type: 'Janitor Closet'
+  coordinates: {
+    x: number
+    y: number
+    z: number
+  }
+}
 import {
   generateMockWashrooms,
   generateMockTasks,
@@ -648,6 +676,104 @@ export async function loadBathroomCatalog(): Promise<BathroomCatalogItem[]> {
     return bathrooms
   } catch (error) {
     console.error('Failed to load bathroom catalog:', error)
+    return []
+  }
+}
+
+/**
+ * Load gates data from gates.json
+ */
+export async function loadGates(): Promise<GateItem[]> {
+  try {
+    const possiblePaths = [
+      'data/gates.json',
+      '../data/gates.json',
+      './data/gates.json',
+      `${DATA_ROOT}/gates.json`,
+    ]
+
+    let text: string | null = null
+    for (const path of possiblePaths) {
+      try {
+        const response = await fetch(path)
+        if (response.ok) {
+          text = await response.text()
+          console.log(`Loaded gates from ${path}`)
+          break
+        }
+      } catch (err) {
+        continue
+      }
+    }
+
+    if (!text) {
+      console.warn('Could not load gates.json, returning empty array')
+      return []
+    }
+
+    const data = JSON.parse(text)
+    const gates: GateItem[] = Object.entries(data).map(([id, item]: [string, any]) => ({
+      id,
+      terminal: item.terminal || '',
+      level: item.level || '',
+      zone: item.zone || '',
+      type: 'Gate' as const,
+      coordinates: item.coordinates || { x: 0, y: 0, z: 0 },
+    }))
+
+    console.log(`Loaded ${gates.length} gates from catalog`)
+    return gates
+  } catch (error) {
+    console.error('Failed to load gates:', error)
+    return []
+  }
+}
+
+/**
+ * Load janitor closets data from janitorCloset.json
+ */
+export async function loadJanitorClosets(): Promise<JanitorClosetItem[]> {
+  try {
+    const possiblePaths = [
+      'data/janitorCloset.json',
+      '../data/janitorCloset.json',
+      './data/janitorCloset.json',
+      `${DATA_ROOT}/janitorCloset.json`,
+    ]
+
+    let text: string | null = null
+    for (const path of possiblePaths) {
+      try {
+        const response = await fetch(path)
+        if (response.ok) {
+          text = await response.text()
+          console.log(`Loaded janitor closets from ${path}`)
+          break
+        }
+      } catch (err) {
+        continue
+      }
+    }
+
+    if (!text) {
+      console.warn('Could not load janitorCloset.json, returning empty array')
+      return []
+    }
+
+    const data = JSON.parse(text)
+    const closets: JanitorClosetItem[] = Object.entries(data).map(([id, item]: [string, any]) => ({
+      id,
+      terminal: item.terminal || '',
+      level: item.level || '',
+      zone: item.zone || '',
+      type: 'Janitor Closet' as const,
+      coordinates: item.coordinates || { x: 0, y: 0, z: 0 },
+    }))
+
+    console.log(`Loaded ${closets.length} janitor closets from catalog`)
+    return closets
+  } catch (error) {
+    console.error('Failed to load janitor closets:', error)
     return []
   }
 }

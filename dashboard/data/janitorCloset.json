@@ -1,0 +1,58 @@
+{
+    "JT1": {
+      "terminal": "T1",
+      "level": "2",
+      "zone": "Post Security",
+      "type": "Janitor Closet",
+      "coordinates": {
+        "x": -4490.680580099247,
+        "y": 1782.608254265499,
+        "z": 0.0
+      }
+    },
+    "JT2": {
+      "terminal": "T1",
+      "level": "2",
+      "zone": "Post Security",
+      "type": "Janitor Closet",
+      "coordinates": {
+        "x": -4509.060276403071,
+        "y": 1839.039595564881,
+        "z": 0.0
+      }
+    },
+    "JT3": {
+      "terminal": "T1",
+      "level": "2",
+      "zone": "Post Security",
+      "type": "Janitor Closet",
+      "coordinates": {
+        "x": -4323.552764966796,
+        "y": 1780.120326410908,
+        "z": 0.0
+      }
+    },
+    "JT4": {
+      "terminal": "T1",
+      "level": "2",
+      "zone": "Post Security",
+      "type": "Janitor Closet",
+      "coordinates": {
+        "x": -4385.466593052234,
+        "y": 1902.33625312484,
+        "z": 0.0
+      }
+    },
+    "JT5": {
+      "terminal": "T1",
+      "level": "2",
+      "zone": "Post Security",
+      "type": "Janitor Closet",
+      "coordinates": {
+        "x": -4459.665206688698,
+        "y": 2027.256688941366,
+        "z": 0.0
+      }
+    }
+  }
+  

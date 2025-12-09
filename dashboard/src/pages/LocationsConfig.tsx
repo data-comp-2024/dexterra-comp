@@ -1,6 +1,9 @@
 import { Typography, Box, Grid, Tabs, Tab } from '@mui/material'
 import { useState } from 'react'
 import WashroomCatalog from '../components/LocationsConfig/WashroomCatalog'
+import GatesCatalog from '../components/LocationsConfig/GatesCatalog'
+import JanitorClosetCatalog from '../components/LocationsConfig/JanitorClosetCatalog'
+import MapView from '../components/LocationsConfig/MapView'
 import RulesThresholds from '../components/LocationsConfig/RulesThresholds'
 
 function LocationsConfig() {
@@ -14,6 +17,9 @@ function LocationsConfig() {
 
       <Tabs value={activeTab} onChange={(_, v) => setActiveTab(v)} sx={{ mb: 3 }}>
         <Tab label="Washroom Catalog" />
+        <Tab label="Gates" />
+        <Tab label="Janitor Closets" />
+        <Tab label="Map View" />
         <Tab label="Rules & Thresholds" />
       </Tabs>
 
@@ -26,6 +32,30 @@ function LocationsConfig() {
       )}
 
       {activeTab === 1 && (
+        <Grid container spacing={{ xs: 2, sm: 3 }}>
+          <Grid item xs={12}>
+            <GatesCatalog />
+          </Grid>
+        </Grid>
+      )}
+
+      {activeTab === 2 && (
+        <Grid container spacing={{ xs: 2, sm: 3 }}>
+          <Grid item xs={12}>
+            <JanitorClosetCatalog />
+          </Grid>
+        </Grid>
+      )}
+
+      {activeTab === 3 && (
+        <Grid container spacing={{ xs: 2, sm: 3 }}>
+          <Grid item xs={12}>
+            <MapView />
+          </Grid>
+        </Grid>
+      )}
+
+      {activeTab === 4 && (
         <Grid container spacing={{ xs: 2, sm: 3 }}>
           <Grid item xs={12}>
             <RulesThresholds />
