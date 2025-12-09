@@ -17,7 +17,7 @@ import {
 } from '@mui/material'
 import { AccessTime, Warning, CheckCircle } from '@mui/icons-material'
 import { useMemo } from 'react'
-import { useData } from '../../hooks/useData'
+import { useCrew } from '../../context/CrewContext'
 import { Crew } from '../../types'
 import { format, formatDistanceToNow, differenceInMinutes, isAfter } from 'date-fns'
 
@@ -35,7 +35,7 @@ interface BreakInfo {
 }
 
 function BreakManagement() {
-  const { crew } = useData()
+  const { crew } = useCrew()
   const now = new Date()
 
   const breakInfo = useMemo(() => {

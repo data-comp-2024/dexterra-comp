@@ -15,6 +15,7 @@ import {
 import { TrendingUp, Warning, Balance } from '@mui/icons-material'
 import { useMemo } from 'react'
 import { useData } from '../../hooks/useData'
+import { useCrew } from '../../context/CrewContext'
 import { Crew, Task } from '../../types'
 
 interface CrewWorkload {
@@ -27,7 +28,8 @@ interface CrewWorkload {
 }
 
 function WorkloadFairness() {
-  const { crew, tasks } = useData()
+  const { tasks } = useData()
+  const { crew } = useCrew()
 
   const workloadData = useMemo(() => {
     const now = new Date()
@@ -71,7 +73,7 @@ function WorkloadFairness() {
     if (totalEmergencies > 0) {
       const avgEmergencies = totalEmergencies / workloadData.length
       const maxEmergencies = Math.max(...workloadData.map((w) => w.emergencyTasks))
-      
+
       if (maxEmergencies > avgEmergencies * 1.7) {
         const overloadedCrew = workloadData.find((w) => w.emergencyTasks === maxEmergencies)
         const percentage = Math.round((maxEmergencies / totalEmergencies) * 100)

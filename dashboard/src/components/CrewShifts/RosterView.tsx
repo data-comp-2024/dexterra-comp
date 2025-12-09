@@ -26,12 +26,12 @@ import {
   PersonOff,
 } from '@mui/icons-material'
 import { useState, useMemo } from 'react'
-import { useData } from '../../hooks/useData'
+import { useCrew } from '../../context/CrewContext'
 import { Crew, CrewStatus } from '../../types'
 import { format, isAfter, isBefore } from 'date-fns'
 
 function RosterView() {
-  const { crew } = useData()
+  const { crew, updateCrewStatus } = useCrew()
   const [anchorEl, setAnchorEl] = useState<{ [key: string]: HTMLElement | null }>({})
   const now = new Date()
 
@@ -63,6 +63,15 @@ function RosterView() {
 
   const handleMenuClose = (crewId: string) => {
     setAnchorEl({ ...anchorEl, [crewId]: null })
+  }
+
+  const handleToggleStatus = (member: Crew) => {
+    if (member.status === 'unavailable') {
+      updateCrewStatus(member.id, 'available')
+    } else {
+      updateCrewStatus(member.id, 'unavailable', 'Manual override from Roster')
+    }
+    handleMenuClose(member.id)
   }
 
   const getStatusColor = (status: CrewStatus) => {
@@ -149,8 +158,8 @@ function RosterView() {
                         {isBefore(now, member.shift.startTime)
                           ? `Starts ${format(member.shift.startTime, 'MMM d')}`
                           : isAfter(now, member.shift.endTime)
-                          ? `Ended ${format(member.shift.endTime, 'MMM d')}`
-                          : 'Active'}
+                            ? `Ended ${format(member.shift.endTime, 'MMM d')}`
+                            : 'Active'}
                       </Typography>
                     </Box>
                   </TableCell>
@@ -181,9 +190,18 @@ function RosterView() {
                         <Schedule sx={{ mr: 1 }} fontSize="small" />
                         View Schedule
                       </MenuItem>
-                      <MenuItem onClick={() => handleMenuClose(member.id)}>
-                        <PersonOff sx={{ mr: 1 }} fontSize="small" />
-                        Mark Unavailable
+                      <MenuItem onClick={() => handleToggleStatus(member)}>
+                        {member.status === 'unavailable' ? (
+                          <>
+                            <CheckCircle sx={{ mr: 1 }} fontSize="small" />
+                            Mark Available
+                          </>
+                        ) : (
+                          <>
+                            <PersonOff sx={{ mr: 1 }} fontSize="small" />
+                            Mark Unavailable
+                          </>
+                        )}
                       </MenuItem>
                     </Menu>
                   </TableCell>

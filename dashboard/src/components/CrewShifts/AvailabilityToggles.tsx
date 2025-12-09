@@ -25,11 +25,11 @@ import {
 } from '@mui/material'
 import { PersonOff, Person } from '@mui/icons-material'
 import { useState } from 'react'
-import { useData } from '../../hooks/useData'
+import { useCrew } from '../../context/CrewContext'
 import { Crew } from '../../types'
 
 function AvailabilityToggles() {
-  const { crew } = useData()
+  const { crew, updateCrewStatus } = useCrew()
   const [dialogOpen, setDialogOpen] = useState(false)
   const [selectedCrew, setSelectedCrew] = useState<Crew | null>(null)
   const [unavailableReason, setUnavailableReason] = useState('')
@@ -45,8 +45,7 @@ function AvailabilityToggles() {
   const handleToggleAvailability = (member: Crew) => {
     if (member.status === 'unavailable') {
       // Mark as available
-      // TODO: Implement actual status update
-      console.log('Mark available:', member.id)
+      updateCrewStatus(member.id, 'available')
     } else {
       // Mark as unavailable - open dialog for reason
       setSelectedCrew(member)
@@ -56,8 +55,7 @@ function AvailabilityToggles() {
 
   const handleConfirmUnavailable = () => {
     if (selectedCrew && unavailableReason) {
-      // TODO: Implement actual status update
-      console.log('Mark unavailable:', selectedCrew.id, 'reason:', unavailableReason)
+      updateCrewStatus(selectedCrew.id, 'unavailable', unavailableReason)
       setDialogOpen(false)
       setSelectedCrew(null)
       setUnavailableReason('')
@@ -65,7 +63,7 @@ function AvailabilityToggles() {
   }
 
   const onShiftCrew = crew.filter(
-    (c) => c.status === 'on_shift' || c.status === 'available' || c.status === 'busy'
+    (c) => c.status === 'on_shift' || c.status === 'available' || c.status === 'busy' || c.status === 'unavailable'
   )
 
   return (
@@ -100,7 +98,7 @@ function AvailabilityToggles() {
                     primary={member.name}
                     secondary={
                       member.status === 'unavailable'
-                        ? `Unavailable: ${unavailableReason || 'No reason specified'}`
+                        ? `Unavailable`
                         : `${member.role} • ${member.status.replace('_', ' ')}`
                     }
                   />
