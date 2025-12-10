@@ -11,7 +11,7 @@ import {
   TaskState,
   TaskPriority,
 } from '../types'
-import { HAPPY_SCORE_THRESHOLD, DEFAULT_MAX_HEADWAY_MINUTES } from '../constants'
+import { HAPPY_SCORE_THRESHOLD, DEFAULT_MAX_HEADWAY_MINUTES, CURRENT_DATE } from '../constants'
 
 /**
  * Calculate headway for a washroom based on completed tasks
@@ -49,20 +49,26 @@ export function calculateHeadway(
       t.startedTime
   )
 
-  const now = new Date()
-  const headwayMinutes =
-    (now.getTime() - lastCompletedTime.getTime()) / (1000 * 60)
+  const now = CURRENT_DATE
+  
+  // Calculate headway: time since last completed task
+  // Ensure lastCompletedTime is not in the future (shouldn't happen, but handle edge case)
+  const headwayMinutes = Math.max(0, (now.getTime() - lastCompletedTime.getTime()) / (1000 * 60))
+  
+  // If headway is unreasonably large (more than 7 days), cap it to a reasonable value
+  const maxReasonableHeadway = 7 * 24 * 60 // 7 days in minutes
+  const clampedHeadway = Math.min(headwayMinutes, maxReasonableHeadway)
 
   const slaMinutes =
     lastCompleted.sla?.maxHeadwayMinutes || defaultSlaMinutes
 
   return {
     washroomId,
-    headwayMinutes: Math.round(headwayMinutes * 10) / 10,
+    headwayMinutes: Math.round(clampedHeadway * 10) / 10,
     lastCompletedTime,
     nextScheduledTime: nextTask?.startedTime,
     slaMinutes,
-    isWithinSLA: headwayMinutes <= slaMinutes,
+    isWithinSLA: clampedHeadway <= slaMinutes,
   }
 }
 
@@ -74,7 +80,7 @@ export function calculateAverageHappyScore(
   happyScores: HappyScore[],
   windowMinutes: number = 60
 ): number | null {
-  const now = new Date()
+  const now = CURRENT_DATE
   const windowStart = new Date(now.getTime() - windowMinutes * 60 * 1000)
 
   const scoresInWindow = happyScores.filter(

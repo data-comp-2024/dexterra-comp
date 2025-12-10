@@ -11,7 +11,7 @@ import {
   ButtonGroup,
   TextField,
 } from '@mui/material'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { format, subDays, subHours } from 'date-fns'
 
 export interface TimeRange {
@@ -26,7 +26,14 @@ interface TimeRangeSelectorProps {
 }
 
 function TimeRangeSelector({ onRangeChange, defaultRange }: TimeRangeSelectorProps) {
-  const [selectedPreset, setSelectedPreset] = useState<string>('24h')
+  // Default to 2024 if defaultRange is provided and covers 2024, otherwise use '24h'
+  const is2024Range = defaultRange && 
+    defaultRange.start.getFullYear() === 2024 && 
+    defaultRange.end.getFullYear() === 2024 &&
+    defaultRange.start.getMonth() === 0 &&
+    defaultRange.end.getMonth() === 11
+
+  const [selectedPreset, setSelectedPreset] = useState<string>(is2024Range ? '2024' : '24h')
   const [customStart, setCustomStart] = useState<string>(
     defaultRange
       ? format(defaultRange.start, 'yyyy-MM-dd\'T\'HH:mm')
@@ -39,6 +46,11 @@ function TimeRangeSelector({ onRangeChange, defaultRange }: TimeRangeSelectorPro
   )
 
   const presets: { [key: string]: TimeRange } = {
+    '2024': {
+      start: new Date('2024-01-01T00:00:00'),
+      end: new Date('2024-12-31T23:59:59'),
+      label: '2024',
+    },
     '24h': {
       start: subHours(new Date(), 24),
       end: new Date(),
@@ -55,6 +67,13 @@ function TimeRangeSelector({ onRangeChange, defaultRange }: TimeRangeSelectorPro
       label: 'Last 30 Days',
     },
   }
+
+  // Initialize with default range on mount
+  useEffect(() => {
+    if (defaultRange) {
+      onRangeChange(defaultRange)
+    }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const handlePresetClick = (preset: string) => {
     setSelectedPreset(preset)

@@ -86,7 +86,8 @@ export function useData(): UseDataReturn {
       ])
 
       // Extract values from Promise.allSettled results
-      setTasks(tasksData.status === 'fulfilled' ? tasksData.value : [])
+      const tasksResult = tasksData.status === 'fulfilled' ? tasksData.value : { tasks: [], taskTitleMap: new Map() }
+      setTasks(tasksResult.tasks || [])
       setEmergencyEvents(
         emergencyEventsData.status === 'fulfilled' ? emergencyEventsData.value : []
       )

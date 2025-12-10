@@ -20,6 +20,7 @@ import { useMemo } from 'react'
 import { useCrew } from '../../context/CrewContext'
 import { Crew } from '../../types'
 import { format, formatDistanceToNow, differenceInMinutes, isAfter } from 'date-fns'
+import { CURRENT_DATE } from '../../constants'
 
 // Break policy constants
 const MAX_WORK_MINUTES_BEFORE_BREAK = 240 // 4 hours
@@ -36,7 +37,7 @@ interface BreakInfo {
 
 function BreakManagement() {
   const { crew } = useCrew()
-  const now = new Date()
+  const now = CURRENT_DATE
 
   const breakInfo = useMemo(() => {
     return crew

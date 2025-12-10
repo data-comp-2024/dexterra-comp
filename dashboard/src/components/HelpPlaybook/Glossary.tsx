@@ -53,7 +53,7 @@ const glossaryTerms: GlossaryTerm[] = [
     relatedTerms: ['Headway', 'Response Time'],
   },
   {
-    term: 'Optimizer (Craptimizer)',
+    term: 'Optimizer',
     definition: 'An optimization tool that generates efficient task assignments for crew members. The optimizer considers factors like walking distance, emergency response time, and SLA adherence to create optimal assignment plans.',
     category: 'Tools',
     relatedTerms: ['Assignment', 'Optimization'],

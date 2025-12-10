@@ -23,3 +23,6 @@ export const TASK_TIME_HORIZON_HOURS = 6
 // Demand forecast horizon (Section 6.4.1)
 export const DEMAND_FORECAST_HOURS = 12
 
+// Current date for the application (set to last day of 2024)
+export const CURRENT_DATE = new Date('2024-12-31T12:00:00') // Dec 31, 2024, noon
+

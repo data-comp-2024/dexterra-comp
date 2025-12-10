@@ -19,6 +19,7 @@ import { useMemo } from 'react'
 import { useData } from '../../hooks/useData'
 import { Crew, CrewStatus } from '../../types'
 import { format, formatDistanceToNow } from 'date-fns'
+import { CURRENT_DATE } from '../../constants'
 
 function CrewStrip() {
   const { crew, tasks, washrooms } = useData()
@@ -53,7 +54,7 @@ function CrewStrip() {
         currentTask.startedTime.getTime() +
           currentTask.estimatedDurationMinutes * 60 * 1000
       )
-      const now = new Date()
+      const now = CURRENT_DATE
       if (completionTime > now) {
         const minutesRemaining = Math.ceil(
           (completionTime.getTime() - now.getTime()) / (1000 * 60)

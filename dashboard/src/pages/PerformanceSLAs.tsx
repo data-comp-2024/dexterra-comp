@@ -8,11 +8,14 @@ import CrewProductivityKPIs from '../components/PerformanceSLAs/CrewProductivity
 import PerformanceFilters, { PerformanceFilters as FiltersType } from '../components/PerformanceSLAs/PerformanceFilters'
 
 function PerformanceSLAs() {
-  const [timeRange, setTimeRange] = useState<TimeRange>({
-    start: new Date(Date.now() - 24 * 60 * 60 * 1000),
-    end: new Date(),
-    label: 'Last 24 Hours',
-  })
+  // Default to 2024 timeline (Jan 1, 2024 to Dec 31, 2024)
+  const default2024Range: TimeRange = {
+    start: new Date('2024-01-01T00:00:00'),
+    end: new Date('2024-12-31T23:59:59'),
+    label: '2024',
+  }
+
+  const [timeRange, setTimeRange] = useState<TimeRange>(default2024Range)
   const [filters, setFilters] = useState<FiltersType>({
     terminals: [],
     zones: [],
@@ -62,7 +65,7 @@ function PerformanceSLAs() {
       <Grid container spacing={{ xs: 2, sm: 3 }}>
         {/* Time Range Selector */}
         <Grid item xs={12}>
-          <TimeRangeSelector onRangeChange={setTimeRange} defaultRange={timeRange} />
+          <TimeRangeSelector onRangeChange={setTimeRange} defaultRange={default2024Range} />
         </Grid>
 
         {/* Filters */}

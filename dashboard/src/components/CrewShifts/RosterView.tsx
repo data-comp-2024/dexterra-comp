@@ -24,16 +24,21 @@ import {
   CheckCircle,
   Schedule,
   PersonOff,
+  Edit,
 } from '@mui/icons-material'
 import { useState, useMemo } from 'react'
 import { useCrew } from '../../context/CrewContext'
 import { Crew, CrewStatus } from '../../types'
 import { format, isAfter, isBefore } from 'date-fns'
+import { CURRENT_DATE } from '../../constants'
+import EditShiftDialog from './EditShiftDialog'
 
 function RosterView() {
-  const { crew, updateCrewStatus } = useCrew()
+  const { crew, updateCrewStatus, updateCrewShift } = useCrew()
   const [anchorEl, setAnchorEl] = useState<{ [key: string]: HTMLElement | null }>({})
-  const now = new Date()
+  const [editDialogOpen, setEditDialogOpen] = useState(false)
+  const [selectedCrew, setSelectedCrew] = useState<Crew | null>(null)
+  const now = CURRENT_DATE
 
   // Separate crew by status
   const crewByStatus = useMemo(() => {
@@ -72,6 +77,17 @@ function RosterView() {
       updateCrewStatus(member.id, 'unavailable', 'Manual override from Roster')
     }
     handleMenuClose(member.id)
+  }
+
+  const handleEditShift = (member: Crew) => {
+    setSelectedCrew(member)
+    setEditDialogOpen(true)
+    handleMenuClose(member.id)
+  }
+
+  const handleSaveShift = (crewId: string, startTime: Date, endTime: Date, status: CrewStatus) => {
+    updateCrewShift(crewId, startTime, endTime)
+    updateCrewStatus(crewId, status)
   }
 
   const getStatusColor = (status: CrewStatus) => {
@@ -186,9 +202,9 @@ function RosterView() {
                       open={Boolean(anchorEl[member.id])}
                       onClose={() => handleMenuClose(member.id)}
                     >
-                      <MenuItem onClick={() => handleMenuClose(member.id)}>
-                        <Schedule sx={{ mr: 1 }} fontSize="small" />
-                        View Schedule
+                      <MenuItem onClick={() => handleEditShift(member)}>
+                        <Edit sx={{ mr: 1 }} fontSize="small" />
+                        Edit Shift & Status
                       </MenuItem>
                       <MenuItem onClick={() => handleToggleStatus(member)}>
                         {member.status === 'unavailable' ? (
@@ -230,6 +246,17 @@ function RosterView() {
             No crew members found
           </Typography>
         )}
+
+        {/* Edit Shift Dialog */}
+        <EditShiftDialog
+          crew={selectedCrew}
+          open={editDialogOpen}
+          onClose={() => {
+            setEditDialogOpen(false)
+            setSelectedCrew(null)
+          }}
+          onSave={handleSaveShift}
+        />
       </CardContent>
     </Card>
   )
