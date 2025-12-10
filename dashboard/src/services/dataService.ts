@@ -626,6 +626,249 @@ export async function loadTasks(washroomIds: string[] = [], crewIds: string[] = 
 }
 
 /**
+ * Load historical tasks from CSV file
+ * CSV format: Task ID,Title,Name,Bathroom,dt
+ * Returns tasks, a map of crew ID to crew name, a map of task ID to title, and a map of task ID to original date string
+ */
+export async function loadHistoricalTasks(
+  date?: string
+): Promise<{ tasks: Task[]; crewNameMap: Map<string, string>; taskTitleMap: Map<string, string>; taskDateStringMap: Map<string, string> }> {
+  try {
+    const possiblePaths = [
+      '/Tasks 2024lighthouse_tasks_combined.csv', // Since publicDir is 'data', files are at root
+      'data/Tasks 2024lighthouse_tasks_combined.csv',
+      '/data/Tasks 2024lighthouse_tasks_combined.csv',
+      './data/Tasks 2024lighthouse_tasks_combined.csv',
+      '../data/Tasks 2024lighthouse_tasks_combined.csv',
+      `${DATA_ROOT}/Tasks 2024lighthouse_tasks_combined.csv`,
+    ]
+
+    let text: string | null = null
+    for (const csvPath of possiblePaths) {
+      try {
+        const response = await fetch(csvPath)
+        if (response.ok) {
+          text = await response.text()
+          console.log(`Loaded historical tasks from ${csvPath}`)
+          break
+        }
+      } catch (error) {
+        continue
+      }
+    }
+
+    if (!text) {
+      console.warn('Could not load historical tasks CSV')
+      return { tasks: [], crewNameMap: new Map(), taskTitleMap: new Map(), taskDateStringMap: new Map() }
+    }
+
+    return new Promise((resolve) => {
+      Papa.parse(text, {
+        header: true,
+        delimiter: ',',
+        skipEmptyLines: true,
+        transformHeader: (header) => header.trim(),
+        complete: (results) => {
+          if (results.errors.length > 0) {
+            console.warn('Historical tasks CSV parsing warnings:', results.errors.slice(0, 5))
+          }
+
+          if (!results.data || results.data.length === 0) {
+            console.warn('No historical tasks data in CSV')
+            resolve({ tasks: [], crewNameMap: new Map(), taskTitleMap: new Map(), taskDateStringMap: new Map() })
+            return
+          }
+
+          const tasks: Task[] = []
+          const crewNameToIdMap = new Map<string, string>() // Map crew names to IDs
+          const taskTitleMap = new Map<string, string>() // Map task ID to title
+          const taskDateStringMap = new Map<string, string>() // Map task ID to original date string
+          let crewIdCounter = 1
+
+          results.data.forEach((row: any, index: number) => {
+            try {
+              const taskId = String(row['Task ID'] || '').trim()
+              const title = String(row['Title'] || '').trim()
+              const crewName = String(row['Name'] || '').trim()
+              const bathroomId = String(row['Bathroom'] || '').trim()
+              const dtStr = String(row['dt'] || '').trim()
+
+              if (!taskId || !bathroomId || !dtStr) {
+                if (index < 3) console.warn(`Row ${index}: Missing required fields`, row)
+                return
+              }
+
+              // Parse date/time - extract date part before parsing to avoid timezone issues
+              // Format: "2024-12-31 23:45:09-05:00" -> extract "2024-12-31"
+              const dateMatch = dtStr.match(/^(\d{4}-\d{2}-\d{2})/)
+              if (!dateMatch) {
+                if (index < 3) console.warn(`Row ${index}: Invalid date format: ${dtStr}`)
+                return
+              }
+              const taskDateStr = dateMatch[1]
+
+              // Filter out Dec 31, 2024 tasks
+              if (taskDateStr === '2024-12-31') {
+                return
+              }
+
+              // Filter by date if provided (compare dates only, not time)
+              if (date) {
+                if (taskDateStr !== date) {
+                  return
+                }
+              }
+
+              // Parse the full date/time for the createdTime field
+              let createdTime: Date
+              try {
+                createdTime = new Date(dtStr)
+                if (isNaN(createdTime.getTime())) {
+                  if (index < 3) console.warn(`Row ${index}: Invalid date string: ${dtStr}`)
+                  return
+                }
+              } catch {
+                if (index < 3) console.warn(`Row ${index}: Date parsing error: ${dtStr}`)
+                return
+              }
+
+              // Map crew name to ID
+              let crewId: string | undefined
+              if (crewName) {
+                if (!crewNameToIdMap.has(crewName)) {
+                  const newCrewId = `crew-historical-${crewIdCounter++}`
+                  crewNameToIdMap.set(crewName, newCrewId)
+                }
+                crewId = crewNameToIdMap.get(crewName)
+              }
+
+              // Store the title for display
+              if (title) {
+                taskTitleMap.set(taskId, title)
+              }
+
+              // Store the original date string for display (exactly as it appears in CSV)
+              taskDateStringMap.set(taskId, dtStr)
+
+              // Map title to task type for internal use (default to routine_cleaning)
+              // The actual title will be displayed from taskTitleMap
+              let taskType: TaskType = 'routine_cleaning'
+              if (title.toLowerCase().includes('emergency')) {
+                taskType = 'emergency_cleaning'
+              } else if (title.toLowerCase().includes('inspection')) {
+                taskType = 'inspection'
+              } else if (title.toLowerCase().includes('refill') || title.toLowerCase().includes('air freshener')) {
+                taskType = 'consumable_refill'
+              }
+
+              tasks.push({
+                id: taskId,
+                type: taskType,
+                washroomId: bathroomId,
+                priority: 'normal', // All tasks are normal priority
+                state: 'completed', // All tasks are completed
+                assignedCrewId: crewId,
+                createdTime,
+              })
+            } catch (error) {
+              if (index < 10) {
+                console.warn(`Skipping malformed historical task row ${index}:`, error, row)
+              }
+            }
+          })
+
+          // Create reverse map: crew ID -> crew name
+          const crewNameMap = new Map<string, string>()
+          crewNameToIdMap.forEach((crewId, crewName) => {
+            crewNameMap.set(crewId, crewName)
+          })
+
+          console.log(`Loaded ${tasks.length} historical tasks${date ? ` for date ${date}` : ''}`)
+          resolve({ tasks, crewNameMap, taskTitleMap, taskDateStringMap })
+        },
+        error: (error: unknown) => {
+          console.warn('Historical tasks CSV parsing error:', error)
+          resolve({ tasks: [], crewNameMap: new Map(), taskTitleMap: new Map(), taskDateStringMap: new Map() })
+        },
+      })
+    })
+  } catch (error: unknown) {
+    console.warn('Failed to load historical tasks:', error)
+    return { tasks: [], crewNameMap: new Map(), taskTitleMap: new Map(), taskDateStringMap: new Map() }
+  }
+}
+
+/**
+ * Get available dates from historical tasks CSV (excluding Dec 31, 2024)
+ */
+export async function getAvailableHistoricalDates(): Promise<string[]> {
+  try {
+    // Load all tasks without date filter to get all available dates
+    const possiblePaths = [
+      '/Tasks 2024lighthouse_tasks_combined.csv',
+      'data/Tasks 2024lighthouse_tasks_combined.csv',
+      '/data/Tasks 2024lighthouse_tasks_combined.csv',
+      './data/Tasks 2024lighthouse_tasks_combined.csv',
+      '../data/Tasks 2024lighthouse_tasks_combined.csv',
+      `${DATA_ROOT}/Tasks 2024lighthouse_tasks_combined.csv`,
+    ]
+
+    let text: string | null = null
+    for (const csvPath of possiblePaths) {
+      try {
+        const response = await fetch(csvPath)
+        if (response.ok) {
+          text = await response.text()
+          break
+        }
+      } catch (error) {
+        continue
+      }
+    }
+
+    if (!text) {
+      return []
+    }
+
+    return new Promise((resolve) => {
+      Papa.parse(text, {
+        header: true,
+        delimiter: ',',
+        skipEmptyLines: true,
+        transformHeader: (header) => header.trim(),
+        complete: (results) => {
+          const dates = new Set<string>()
+          
+          if (results.data && results.data.length > 0) {
+            results.data.forEach((row: any) => {
+              const dtStr = String(row['dt'] || '').trim()
+              if (dtStr) {
+                const dateMatch = dtStr.match(/^(\d{4}-\d{2}-\d{2})/)
+                if (dateMatch) {
+                  const dateStr = dateMatch[1]
+                  // Exclude Dec 31, 2024
+                  if (dateStr !== '2024-12-31') {
+                    dates.add(dateStr)
+                  }
+                }
+              }
+            })
+          }
+          
+          resolve(Array.from(dates).sort().reverse()) // Most recent first
+        },
+        error: () => {
+          resolve([])
+        },
+      })
+    })
+  } catch (error) {
+    console.warn('Failed to get available historical dates:', error)
+    return []
+  }
+}
+
+/**
  * Load crew data
  */
 export async function loadCrewData(): Promise<Crew[]> {
