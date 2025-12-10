@@ -5,6 +5,7 @@ import { useData } from '../hooks/useData'
 interface CrewContextType {
     crew: Crew[]
     updateCrewStatus: (crewId: string, status: CrewStatus, reason?: string) => void
+    updateCrewShift: (crewId: string, startTime: Date, endTime: Date) => void
     loading: boolean
 }
 
@@ -34,8 +35,25 @@ export function CrewProvider({ children }: { children: ReactNode }) {
         console.log(`Updated crew ${crewId} status to ${status}${reason ? ` (${reason})` : ''}`)
     }
 
+    const updateCrewShift = (crewId: string, startTime: Date, endTime: Date) => {
+        setCrew((prevCrew) =>
+            prevCrew.map((member) =>
+                member.id === crewId
+                    ? {
+                          ...member,
+                          shift: {
+                              startTime,
+                              endTime,
+                          },
+                      }
+                    : member
+            )
+        )
+        console.log(`Updated crew ${crewId} shift to ${startTime.toLocaleTimeString()} - ${endTime.toLocaleTimeString()}`)
+    }
+
     return (
-        <CrewContext.Provider value={{ crew, updateCrewStatus, loading: loading || dataLoading }}>
+        <CrewContext.Provider value={{ crew, updateCrewStatus, updateCrewShift, loading: loading || dataLoading }}>
             {children}
         </CrewContext.Provider>
     )
