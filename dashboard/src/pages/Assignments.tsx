@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import {
   Typography,
   Box,
@@ -15,10 +15,12 @@ import ConflictIndicators from '../components/Assignments/ConflictIndicators'
 import TaskDetailModal from '../components/Assignments/TaskDetailModal'
 import AssignTaskDialog from '../components/Assignments/AssignTaskDialog'
 import CancelTaskDialog from '../components/Assignments/CancelTaskDialog'
+import AddTaskDialog from '../components/Assignments/AddTaskDialog'
 import { useData } from '../hooks/useData'
 import { Task } from '../types'
 import { loadHistoricalTasks, getAvailableHistoricalDates, loadTasks } from '../services/dataService'
 import { format, parseISO } from 'date-fns'
+import Papa from 'papaparse'
 
 function Assignments() {
   // Note: Assignments page does NOT use auto-refresh to prevent random data changes
@@ -29,9 +31,11 @@ function Assignments() {
   const [selectedTask, setSelectedTask] = useState<Task | null>(null)
   const [assignDialogOpen, setAssignDialogOpen] = useState(false)
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false)
+  const [addDialogOpen, setAddDialogOpen] = useState(false)
   const [assignTask, setAssignTask] = useState<Task | null>(null)
   const [cancelTask, setCancelTask] = useState<Task | null>(null)
   const [assignMode, setAssignMode] = useState<'assign' | 'reassign'>('assign')
+  const [nextTaskId, setNextTaskId] = useState<number>(1)
   
   // Historical tasks view state
   const [viewMode, setViewMode] = useState<'current' | 'historical'>('current')
@@ -42,6 +46,7 @@ function Assignments() {
   const [taskTitleMap, setTaskTitleMap] = useState<Map<string, string>>(new Map())
   const [taskDateStringMap, setTaskDateStringMap] = useState<Map<string, string>>(new Map())
   const [loadingHistorical, setLoadingHistorical] = useState(false)
+  const [allTaskTypes, setAllTaskTypes] = useState<string[]>([])
 
   // Load current tasks on mount
   useEffect(() => {
@@ -52,6 +57,13 @@ function Assignments() {
         const { tasks: loadedTasks, taskTitleMap } = await loadTasks(washroomIds, crewIds)
         setTasks(loadedTasks)
         setCurrentTaskTitleMap(taskTitleMap)
+        
+        // Find the highest task ID to generate new ones
+        const maxId = loadedTasks.reduce((max, task) => {
+          const numId = parseInt(task.id.replace(/\D/g, ''), 10)
+          return isNaN(numId) ? max : Math.max(max, numId)
+        }, 0)
+        setNextTaskId(maxId + 1)
       } catch (error) {
         console.error('Failed to load current tasks:', error)
       }
@@ -62,7 +74,7 @@ function Assignments() {
     }
   }, [washrooms.length, crew.length])
 
-  // Load available dates on mount
+  // Load available dates and task types on mount
   useEffect(() => {
     getAvailableHistoricalDates().then((dates) => {
       setAvailableDates(dates)
@@ -70,6 +82,61 @@ function Assignments() {
         setSelectedDate(dates[0]) // Select most recent date by default
       }
     })
+
+    // Load all unique task types from CSV
+    const loadTaskTypes = async () => {
+      try {
+        const possiblePaths = [
+          '/Tasks 2024lighthouse_tasks_combined.csv',
+          'data/Tasks 2024lighthouse_tasks_combined.csv',
+          '/data/Tasks 2024lighthouse_tasks_combined.csv',
+          './data/Tasks 2024lighthouse_tasks_combined.csv',
+          '../data/Tasks 2024lighthouse_tasks_combined.csv',
+        ]
+
+        let text: string | null = null
+        for (const csvPath of possiblePaths) {
+          try {
+            const response = await fetch(csvPath)
+            if (response.ok) {
+              text = await response.text()
+              break
+            }
+          } catch (error) {
+            continue
+          }
+        }
+
+        if (text) {
+          Papa.parse(text, {
+            header: true,
+            delimiter: ',',
+            skipEmptyLines: true,
+            transformHeader: (header) => header.trim(),
+            complete: (results) => {
+              const types = new Set<string>()
+              if (results.data && results.data.length > 0) {
+                results.data.forEach((row: any) => {
+                  const title = String(row['Title'] || '').trim().replace(/^["']|["']$/g, '')
+                  if (title && title !== 'Title') {
+                    types.add(title)
+                  }
+                })
+              }
+              setAllTaskTypes(Array.from(types).sort())
+            },
+            error: () => {
+              // Fallback on error
+              setAllTaskTypes(['Washroom Checklist', 'Air Freshener Checklist', 'C&W Check-in Counter Checklist', 'Lounge Checklist'])
+            },
+          })
+        }
+      } catch (error) {
+        console.warn('Failed to load task types:', error)
+      }
+    }
+
+    loadTaskTypes()
   }, [])
 
   // Load historical tasks when date changes
@@ -209,6 +276,60 @@ function Assignments() {
     setAssignDialogOpen(true)
   }
 
+  const handleAddTask = (taskData: Omit<Task, 'id'>) => {
+    // Generate a new task ID
+    const newTaskId = `task-manual-${nextTaskId}`
+    const newTask: Task = {
+      ...taskData,
+      id: newTaskId,
+    }
+    
+    setTasks((prevTasks) => [...prevTasks, newTask])
+    
+    // Store the title in the title map
+    const taskTypeTitle = taskData.type.replace('_', ' ')
+    // Try to find matching title from available types
+    const availableTypes = Array.from(currentTaskTitleMap.values())
+    const matchingTitle = availableTypes.find((t) => 
+      t.toLowerCase().includes(taskTypeTitle.toLowerCase()) ||
+      taskTypeTitle.toLowerCase().includes(t.toLowerCase())
+    ) || taskTypeTitle
+    
+    setCurrentTaskTitleMap((prev) => {
+      const newMap = new Map(prev)
+      newMap.set(newTaskId, matchingTitle)
+      return newMap
+    })
+    
+    setNextTaskId((prev) => prev + 1)
+  }
+
+  const handleDeleteTask = (task: Task) => {
+    setTasks((prevTasks) => prevTasks.filter((t) => t.id !== task.id))
+    
+    // Clear selected task if it was deleted
+    if (selectedTask?.id === task.id) {
+      setSelectedTask(null)
+    }
+    
+    // Remove from title map
+    setCurrentTaskTitleMap((prev) => {
+      const newMap = new Map(prev)
+      newMap.delete(task.id)
+      return newMap
+    })
+  }
+
+  // Get available task types for the add dialog
+  // Use all task types from CSV
+  const availableTaskTypes = useMemo(() => {
+    if (allTaskTypes.length > 0) {
+      return allTaskTypes
+    }
+    // Fallback to common task types if no CSV data loaded yet
+    return ['Washroom Checklist', 'Air Freshener Checklist', 'C&W Check-in Counter Checklist', 'Lounge Checklist']
+  }, [allTaskTypes])
+
   return (
     <Box>
       {/* View Mode Toggle */}
@@ -278,6 +399,8 @@ function Assignments() {
               onReassign={(task) => openAssignDialog(task, 'reassign')}
               onUnassign={handleUnassign}
               onCancel={handleCancelClick}
+              onDelete={handleDeleteTask}
+              onAdd={() => setAddDialogOpen(true)}
             />
           ) : (
             <>
@@ -341,6 +464,15 @@ function Assignments() {
           setCancelTask(null)
         }}
         onCancel={handleCancel}
+      />
+
+      {/* Add Task Dialog */}
+      <AddTaskDialog
+        open={addDialogOpen}
+        onClose={() => setAddDialogOpen(false)}
+        onAdd={handleAddTask}
+        washrooms={washrooms.map((w) => ({ id: w.id, name: w.name }))}
+        availableTaskTypes={availableTaskTypes}
       />
     </Box>
   )

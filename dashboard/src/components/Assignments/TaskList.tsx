@@ -32,6 +32,8 @@ import {
   Sort,
   Assignment,
   Warning,
+  Add,
+  Delete,
 } from '@mui/icons-material'
 import { useState, useMemo } from 'react'
 import { useData } from '../../hooks/useData'
@@ -47,6 +49,8 @@ interface TaskListProps {
   onReassign?: (task: Task) => void
   onUnassign?: (task: Task) => void
   onCancel?: (task: Task, reason: string) => void
+  onDelete?: (task: Task) => void
+  onAdd?: () => void
 }
 
 type SortField = 'sla' | 'created' | 'priority' | 'washroom'
@@ -60,6 +64,8 @@ function TaskList({
   onReassign,
   onUnassign,
   onCancel,
+  onDelete,
+  onAdd,
 }: TaskListProps) {
   const { tasks: tasksFromData, crew, washrooms } = useData()
   const tasks = tasksProp || tasksFromData
@@ -292,19 +298,31 @@ function TaskList({
           <Typography variant="h6" sx={{ fontWeight: 600 }}>
             Task List ({filteredAndSortedTasks.length} tasks)
           </Typography>
-          <Button
-            size="small"
-            startIcon={<Sort />}
-            onClick={() => {
-              const fields: SortField[] = ['sla', 'created', 'priority', 'washroom']
-              const currentIndex = fields.indexOf(sortField)
-              const nextField = fields[(currentIndex + 1) % fields.length]
-              setSortField(nextField)
-              setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc')
-            }}
-          >
-            Sort: {sortField} ({sortDirection})
-          </Button>
+          <Box sx={{ display: 'flex', gap: 1 }}>
+            {onAdd && (
+              <Button
+                size="small"
+                variant="contained"
+                startIcon={<Add />}
+                onClick={onAdd}
+              >
+                Add Task
+              </Button>
+            )}
+            <Button
+              size="small"
+              startIcon={<Sort />}
+              onClick={() => {
+                const fields: SortField[] = ['sla', 'created', 'priority', 'washroom']
+                const currentIndex = fields.indexOf(sortField)
+                const nextField = fields[(currentIndex + 1) % fields.length]
+                setSortField(nextField)
+                setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc')
+              }}
+            >
+              Sort: {sortField} ({sortDirection})
+            </Button>
+          </Box>
         </Box>
 
         {/* Filters */}
@@ -616,6 +634,18 @@ function TaskList({
                             }}>
                               <Warning sx={{ mr: 1 }} fontSize="small" />
                               Cancel
+                            </MenuItem>
+                          )}
+                          {onDelete && (
+                            <MenuItem
+                              onClick={() => {
+                                onDelete(task)
+                                handleMenuClose(task.id)
+                              }}
+                              sx={{ color: 'error.main' }}
+                            >
+                              <Delete sx={{ mr: 1 }} fontSize="small" />
+                              Delete
                             </MenuItem>
                           )}
                         </Menu>
