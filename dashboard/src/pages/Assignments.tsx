@@ -14,18 +14,23 @@ import HistoricalTaskList from '../components/Assignments/HistoricalTaskList'
 import ConflictIndicators from '../components/Assignments/ConflictIndicators'
 import TaskDetailModal from '../components/Assignments/TaskDetailModal'
 import AssignTaskDialog from '../components/Assignments/AssignTaskDialog'
+import CancelTaskDialog from '../components/Assignments/CancelTaskDialog'
 import { useData } from '../hooks/useData'
 import { Task } from '../types'
-import { loadHistoricalTasks, getAvailableHistoricalDates } from '../services/dataService'
+import { loadHistoricalTasks, getAvailableHistoricalDates, loadTasks } from '../services/dataService'
 import { format, parseISO } from 'date-fns'
 
 function Assignments() {
   // Note: Assignments page does NOT use auto-refresh to prevent random data changes
   // Data is loaded once on mount and only refreshes manually
   const { crew, washrooms } = useData()
+  const [tasks, setTasks] = useState<Task[]>([])
+  const [currentTaskTitleMap, setCurrentTaskTitleMap] = useState<Map<string, string>>(new Map())
   const [selectedTask, setSelectedTask] = useState<Task | null>(null)
   const [assignDialogOpen, setAssignDialogOpen] = useState(false)
+  const [cancelDialogOpen, setCancelDialogOpen] = useState(false)
   const [assignTask, setAssignTask] = useState<Task | null>(null)
+  const [cancelTask, setCancelTask] = useState<Task | null>(null)
   const [assignMode, setAssignMode] = useState<'assign' | 'reassign'>('assign')
   
   // Historical tasks view state
@@ -37,6 +42,25 @@ function Assignments() {
   const [taskTitleMap, setTaskTitleMap] = useState<Map<string, string>>(new Map())
   const [taskDateStringMap, setTaskDateStringMap] = useState<Map<string, string>>(new Map())
   const [loadingHistorical, setLoadingHistorical] = useState(false)
+
+  // Load current tasks on mount
+  useEffect(() => {
+    const loadCurrentTasks = async () => {
+      try {
+        const washroomIds = washrooms.map((w) => w.id)
+        const crewIds = crew.map((c) => c.id)
+        const { tasks: loadedTasks, taskTitleMap } = await loadTasks(washroomIds, crewIds)
+        setTasks(loadedTasks)
+        setCurrentTaskTitleMap(taskTitleMap)
+      } catch (error) {
+        console.error('Failed to load current tasks:', error)
+      }
+    }
+    
+    if (washrooms.length > 0 && crew.length > 0) {
+      loadCurrentTasks()
+    }
+  }, [washrooms.length, crew.length])
 
   // Load available dates on mount
   useEffect(() => {
@@ -72,24 +96,111 @@ function Assignments() {
   }
 
   const handleAssign = (task: Task, crewId: string) => {
-    // TODO: Implement actual assignment logic (update Redux store or API call)
-    console.log('Assign task', task.id, 'to crew', crewId)
-    // For now, just log - in Phase 13 we'll integrate with real data updates
+    setTasks((prevTasks) =>
+      prevTasks.map((t) =>
+        t.id === task.id
+          ? {
+              ...t,
+              assignedCrewId: crewId,
+              state: 'assigned' as const,
+            }
+          : t
+      )
+    )
+    // Update selected task if it's the same one
+    if (selectedTask?.id === task.id) {
+      const updatedTask = tasks.find((t) => t.id === task.id)
+      if (updatedTask) {
+        setSelectedTask({
+          ...updatedTask,
+          assignedCrewId: crewId,
+          state: 'assigned' as const,
+        })
+      }
+    }
   }
 
   const handleReassign = (task: Task, crewId: string) => {
-    // TODO: Implement actual reassignment logic
-    console.log('Reassign task', task.id, 'to crew', crewId)
+    setTasks((prevTasks) =>
+      prevTasks.map((t) =>
+        t.id === task.id
+          ? {
+              ...t,
+              assignedCrewId: crewId,
+              state: t.state === 'in_progress' ? ('in_progress' as const) : ('assigned' as const),
+            }
+          : t
+      )
+    )
+    // Update selected task if it's the same one
+    if (selectedTask?.id === task.id) {
+      const updatedTask = tasks.find((t) => t.id === task.id)
+      if (updatedTask) {
+        setSelectedTask({
+          ...updatedTask,
+          assignedCrewId: crewId,
+        })
+      }
+    }
   }
 
   const handleUnassign = (task: Task) => {
-    // TODO: Implement actual unassignment logic
-    console.log('Unassign task', task.id)
+    setTasks((prevTasks) =>
+      prevTasks.map((t) =>
+        t.id === task.id
+          ? {
+              ...t,
+              assignedCrewId: undefined,
+              state: 'unassigned' as const,
+            }
+          : t
+      )
+    )
+    // Update selected task if it's the same one
+    if (selectedTask?.id === task.id) {
+      const updatedTask = tasks.find((t) => t.id === task.id)
+      if (updatedTask) {
+        setSelectedTask({
+          ...updatedTask,
+          assignedCrewId: undefined,
+          state: 'unassigned' as const,
+        })
+      }
+    }
+  }
+
+  const handleCancelClick = (task: Task) => {
+    setCancelTask(task)
+    setCancelDialogOpen(true)
   }
 
   const handleCancel = (task: Task, reason: string) => {
-    // TODO: Implement actual cancellation logic
-    console.log('Cancel task', task.id, 'reason:', reason)
+    if (!reason) return // Don't cancel if no reason provided
+    
+    setTasks((prevTasks) =>
+      prevTasks.map((t) =>
+        t.id === task.id
+          ? {
+              ...t,
+              state: 'cancelled' as const,
+              cancelledTime: new Date(),
+              cancellationReason: reason,
+            }
+          : t
+      )
+    )
+    // Update selected task if it's the same one
+    if (selectedTask?.id === task.id) {
+      const updatedTask = tasks.find((t) => t.id === task.id)
+      if (updatedTask) {
+        setSelectedTask({
+          ...updatedTask,
+          state: 'cancelled' as const,
+          cancelledTime: new Date(),
+          cancellationReason: reason,
+        })
+      }
+    }
   }
 
   const openAssignDialog = (task: Task, mode: 'assign' | 'reassign' = 'assign') => {
@@ -160,11 +271,13 @@ function Assignments() {
         <Grid item xs={12} md={8}>
           {viewMode === 'current' ? (
             <TaskList
+              tasks={tasks}
+              taskTitleMap={currentTaskTitleMap}
               onTaskSelect={handleTaskSelect}
               onAssign={(task) => openAssignDialog(task, 'assign')}
               onReassign={(task) => openAssignDialog(task, 'reassign')}
               onUnassign={handleUnassign}
-              onCancel={handleCancel}
+              onCancel={handleCancelClick}
             />
           ) : (
             <>
@@ -217,6 +330,17 @@ function Assignments() {
         }}
         crew={crew}
         mode={assignMode}
+      />
+
+      {/* Cancel Task Dialog */}
+      <CancelTaskDialog
+        task={cancelTask}
+        open={cancelDialogOpen}
+        onClose={() => {
+          setCancelDialogOpen(false)
+          setCancelTask(null)
+        }}
+        onCancel={handleCancel}
       />
     </Box>
   )

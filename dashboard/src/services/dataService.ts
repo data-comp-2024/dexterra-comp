@@ -599,29 +599,170 @@ export async function loadHappyScoreData(washrooms: Washroom[] = []): Promise<Ha
 }
 
 /**
- * Load tasks from lighthouse.io Tasks data
+ * Load current tasks from CSV file (all regular tasks, unassigned)
+ * Also generates a small number of emergency tasks
+ * Returns tasks and a map of task ID to title
  */
-export async function loadTasks(washroomIds: string[] = [], crewIds: string[] = []): Promise<Task[]> {
+export async function loadTasks(
+  washroomIds: string[] = [],
+  crewIds: string[] = []
+): Promise<{ tasks: Task[]; taskTitleMap: Map<string, string> }> {
   try {
-    // Try to load from lighthouse.io Tasks Excel files
-    // This is a placeholder - actual implementation would parse Excel files
-    // For now, return mock data
-    // Full implementation would:
-    // 1. List Excel files in the directory
-    // 2. Parse each Excel file using XLSX library
-    // 3. Transform rows to Task objects
-    // 4. Map location keys to washroom IDs
-    
-    // If no IDs provided, generate some mock IDs
+    const possiblePaths = [
+      '/Tasks 2024lighthouse_tasks_combined.csv',
+      'data/Tasks 2024lighthouse_tasks_combined.csv',
+      '/data/Tasks 2024lighthouse_tasks_combined.csv',
+      './data/Tasks 2024lighthouse_tasks_combined.csv',
+      '../data/Tasks 2024lighthouse_tasks_combined.csv',
+      `${DATA_ROOT}/Tasks 2024lighthouse_tasks_combined.csv`,
+    ]
+
+    let text: string | null = null
+    for (const csvPath of possiblePaths) {
+      try {
+        const response = await fetch(csvPath)
+        if (response.ok) {
+          text = await response.text()
+          break
+        }
+      } catch (error) {
+        continue
+      }
+    }
+
+    const tasks: Task[] = []
+    const taskTitleMap = new Map<string, string>()
+
+    if (text) {
+      // Parse CSV to get regular tasks
+      await new Promise<void>((resolve) => {
+        Papa.parse(text, {
+          header: true,
+          delimiter: ',',
+          skipEmptyLines: true,
+          transformHeader: (header) => header.trim(),
+          complete: (results) => {
+            if (results.data && results.data.length > 0) {
+              results.data.forEach((row: any, index: number) => {
+                try {
+                  const taskId = String(row['Task ID'] || '').trim()
+                  const title = String(row['Title'] || '').trim()
+                  const bathroomId = String(row['Bathroom'] || '').trim()
+                  const dtStr = String(row['dt'] || '').trim()
+
+                  if (!taskId || !bathroomId || !dtStr) {
+                    return
+                  }
+
+                  // Extract date part
+                  const dateMatch = dtStr.match(/^(\d{4}-\d{2}-\d{2})/)
+                  if (!dateMatch) return
+                  const taskDateStr = dateMatch[1]
+
+                  // Only include Dec 31, 2024 tasks for current tasks
+                  if (taskDateStr !== '2024-12-31') {
+                    return
+                  }
+
+                  // Parse date/time
+                  let createdTime: Date
+                  try {
+                    createdTime = new Date(dtStr)
+                    if (isNaN(createdTime.getTime())) return
+                  } catch {
+                    return
+                  }
+
+                  // Store title
+                  if (title) {
+                    taskTitleMap.set(taskId, title)
+                  }
+
+                  // Map title to task type
+                  let taskType: TaskType = 'routine_cleaning'
+                  if (title.toLowerCase().includes('emergency')) {
+                    taskType = 'emergency_cleaning'
+                  } else if (title.toLowerCase().includes('inspection')) {
+                    taskType = 'inspection'
+                  } else if (title.toLowerCase().includes('refill') || title.toLowerCase().includes('air freshener')) {
+                    taskType = 'consumable_refill'
+                  }
+
+                  // All regular tasks are unassigned, normal priority, no SLA
+                  tasks.push({
+                    id: taskId,
+                    type: taskType,
+                    washroomId: bathroomId,
+                    priority: 'normal',
+                    state: 'unassigned',
+                    createdTime,
+                    // No assignedCrewId, no slaDeadline
+                  })
+                } catch (error) {
+                  // Skip malformed rows
+                }
+              })
+            }
+            resolve()
+          },
+          error: () => {
+            resolve()
+          },
+        })
+      })
+    }
+
+    // Generate exactly 5 emergency tasks
     const mockWashroomIds = washroomIds.length > 0 ? washroomIds : ['T1-134-MEN', 'T1-134-WOMEN']
-    const mockCrewIds = crewIds.length > 0 ? crewIds : ['crew-1', 'crew-2']
+    const now = new Date('2024-12-31T12:00:00')
+    const emergencyTasks: Task[] = []
     
-    return generateMockTasks(mockWashroomIds, mockCrewIds)
+    for (let i = 0; i < 5; i++) {
+      const washroomId = mockWashroomIds[i % mockWashroomIds.length]
+      const createdTime = new Date(now.getTime() - (5 - i) * 30 * 60 * 1000) // Spread over last 2.5 hours
+      const slaDeadline = new Date(createdTime.getTime() + 10 * 60 * 1000) // 10 min SLA for emergencies
+      
+      emergencyTasks.push({
+        id: `emergency-task-${i + 1}`,
+        type: 'emergency_cleaning',
+        washroomId,
+        priority: 'emergency',
+        state: 'unassigned',
+        createdTime,
+        slaDeadline,
+        estimatedDurationMinutes: 15 + (i % 10),
+      })
+    }
+
+    // Combine regular tasks from CSV with emergency tasks
+    const allTasks = [...tasks, ...emergencyTasks]
+
+    console.log(`Loaded ${tasks.length} regular tasks from CSV and ${emergencyTasks.length} emergency tasks`)
+    return { tasks: allTasks, taskTitleMap }
   } catch (error: unknown) {
-    console.warn('Failed to load tasks, using mock data:', error)
+    console.warn('Failed to load tasks from CSV, using mock data:', error)
     const mockWashroomIds = washroomIds.length > 0 ? washroomIds : ['T1-134-MEN', 'T1-134-WOMEN']
-    const mockCrewIds = crewIds.length > 0 ? crewIds : ['crew-1', 'crew-2']
-    return generateMockTasks(mockWashroomIds, mockCrewIds)
+    // Generate exactly 5 emergency tasks as fallback
+    const now = new Date('2024-12-31T12:00:00')
+    const emergencyTasks: Task[] = []
+    
+    for (let i = 0; i < 5; i++) {
+      const washroomId = mockWashroomIds[i % mockWashroomIds.length]
+      const createdTime = new Date(now.getTime() - (5 - i) * 30 * 60 * 1000)
+      const slaDeadline = new Date(createdTime.getTime() + 10 * 60 * 1000)
+      
+      emergencyTasks.push({
+        id: `emergency-task-${i + 1}`,
+        type: 'emergency_cleaning',
+        washroomId,
+        priority: 'emergency',
+        state: 'unassigned',
+        createdTime,
+        slaDeadline,
+        estimatedDurationMinutes: 15 + (i % 10),
+      })
+    }
+    return { tasks: emergencyTasks, taskTitleMap: new Map() }
   }
 }
 
@@ -869,15 +1010,110 @@ export async function getAvailableHistoricalDates(): Promise<string[]> {
 }
 
 /**
- * Load crew data
+ * Load crew data from CSV file
+ * Extracts unique crew member names and determines who was active on Dec 31, 2024
  */
 export async function loadCrewData(): Promise<Crew[]> {
   try {
-    // Crew data might come from lighthouse.io Events or a separate source
-    // For now, return mock data
-    return generateMockCrew()
+    const possiblePaths = [
+      '/Tasks 2024lighthouse_tasks_combined.csv',
+      'data/Tasks 2024lighthouse_tasks_combined.csv',
+      '/data/Tasks 2024lighthouse_tasks_combined.csv',
+      './data/Tasks 2024lighthouse_tasks_combined.csv',
+      '../data/Tasks 2024lighthouse_tasks_combined.csv',
+      `${DATA_ROOT}/Tasks 2024lighthouse_tasks_combined.csv`,
+    ]
+
+    let text: string | null = null
+    for (const csvPath of possiblePaths) {
+      try {
+        const response = await fetch(csvPath)
+        if (response.ok) {
+          text = await response.text()
+          break
+        }
+      } catch (error) {
+        continue
+      }
+    }
+
+    if (!text) {
+      console.warn('Could not load crew data from CSV, using mock data')
+      return generateMockCrew()
+    }
+
+    return new Promise((resolve) => {
+      const crewMap = new Map<string, { name: string; activeOnDec31: boolean }>()
+      const dec31DateStr = '2024-12-31'
+
+      Papa.parse(text, {
+        header: true,
+        delimiter: ',',
+        skipEmptyLines: true,
+        transformHeader: (header) => header.trim(),
+        complete: (results) => {
+          if (results.data && results.data.length > 0) {
+            results.data.forEach((row: any) => {
+              let name = String(row['Name'] || '').trim()
+              const dtStr = String(row['dt'] || '').trim()
+
+              // Remove quotes if present
+              name = name.replace(/^["']|["']$/g, '')
+
+              if (!name || name === 'Name') return // Skip header or empty names
+
+              // Extract date part
+              const dateMatch = dtStr.match(/^(\d{4}-\d{2}-\d{2})/)
+              if (!dateMatch) return
+              const taskDateStr = dateMatch[1]
+
+              // Track all crew members
+              if (!crewMap.has(name)) {
+                crewMap.set(name, { name, activeOnDec31: false })
+              }
+
+              // Mark as active on Dec 31 if they have tasks on that date
+              if (taskDateStr === dec31DateStr) {
+                const crewInfo = crewMap.get(name)
+                if (crewInfo) {
+                  crewInfo.activeOnDec31 = true
+                }
+              }
+            })
+          }
+
+          // Convert to Crew array
+          const crew: Crew[] = Array.from(crewMap.values()).map((crewInfo, index) => {
+            const crewId = `crew-${index + 1}`
+            const now = new Date('2024-12-31T12:00:00') // Dec 31, 2024, noon
+            const startTime = new Date(now)
+            startTime.setHours(6, 0, 0, 0) // Default shift: 6 AM
+            const endTime = new Date(now)
+            endTime.setHours(18, 0, 0, 0) // Default shift: 6 PM
+
+            return {
+              id: crewId,
+              name: crewInfo.name,
+              role: 'Cleaner',
+              shift: {
+                startTime,
+                endTime,
+              },
+              status: crewInfo.activeOnDec31 ? ('available' as CrewStatus) : ('off_shift' as CrewStatus),
+            }
+          })
+
+          console.log(`Loaded ${crew.length} crew members from CSV (${crew.filter(c => c.status === 'available').length} active on Dec 31)`)
+          resolve(crew)
+        },
+        error: (error: unknown) => {
+          console.warn('Failed to parse crew data from CSV, using mock data:', error)
+          resolve(generateMockCrew())
+        },
+      })
+    })
   } catch (error) {
-    console.warn('Failed to load crew data, using mock data:', error)
+    console.warn('Failed to load crew data from CSV, using mock data:', error)
     return generateMockCrew()
   }
 }

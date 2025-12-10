@@ -23,7 +23,9 @@ import {
   InputLabel,
   Button,
   Tooltip,
+  InputAdornment,
 } from '@mui/material'
+import { Search, Clear } from '@mui/icons-material'
 import {
   MoreVert,
   FilterList,
@@ -38,6 +40,8 @@ import { format, formatDistanceToNow } from 'date-fns'
 import { TASK_TIME_HORIZON_HOURS, CURRENT_DATE } from '../../constants'
 
 interface TaskListProps {
+  tasks?: Task[] // Optional: if provided, use these instead of useData tasks
+  taskTitleMap?: Map<string, string> // Map of task ID to title from CSV
   onTaskSelect?: (task: Task) => void
   onAssign?: (task: Task) => void
   onReassign?: (task: Task) => void
@@ -49,21 +53,28 @@ type SortField = 'sla' | 'created' | 'priority' | 'washroom'
 type SortDirection = 'asc' | 'desc'
 
 function TaskList({
+  tasks: tasksProp,
+  taskTitleMap: taskTitleMapProp,
   onTaskSelect,
   onAssign,
   onReassign,
   onUnassign,
   onCancel,
 }: TaskListProps) {
-  const { tasks, crew, washrooms } = useData()
+  const { tasks: tasksFromData, crew, washrooms } = useData()
+  const tasks = tasksProp || tasksFromData
+  const taskTitleMap = taskTitleMapProp || new Map<string, string>()
   const [anchorEl, setAnchorEl] = useState<{ [key: string]: HTMLElement | null }>({})
   const [selectedTask, setSelectedTask] = useState<Task | null>(null)
   
   // Filters
+  const [typeFilter, setTypeFilter] = useState<string[]>([])
   const [stateFilter, setStateFilter] = useState<TaskState[]>([])
   const [priorityFilter, setPriorityFilter] = useState<TaskPriority[]>([])
   const [terminalFilter, setTerminalFilter] = useState<string[]>([])
+  const [washroomFilter, setWashroomFilter] = useState<string[]>([])
   const [crewFilter, setCrewFilter] = useState<string[]>([])
+  const [taskIdFilter, setTaskIdFilter] = useState<string>('')
   
   // Sorting
   const [sortField, setSortField] = useState<SortField>('sla')
@@ -76,11 +87,59 @@ function TaskList({
     return now
   }, [])
 
+  // Get unique values for filters
+  const uniqueTypes = useMemo(() => {
+    const types = new Set<string>()
+    tasks.forEach((task) => {
+      const title = taskTitleMap.get(task.id)
+      if (title) types.add(title)
+    })
+    return Array.from(types).sort()
+  }, [tasks, taskTitleMap])
+
+  const uniqueWashrooms = useMemo(() => {
+    const washroomIds = new Set<string>()
+    tasks.forEach((task) => washroomIds.add(task.washroomId))
+    return Array.from(washroomIds).sort()
+  }, [tasks])
+
+  const uniqueTerminals = useMemo(() => {
+    const terminals = new Set<string>()
+    tasks.forEach((task) => {
+      const washroom = washrooms.find((w) => w.id === task.washroomId)
+      if (washroom?.terminal) terminals.add(washroom.terminal)
+    })
+    return Array.from(terminals).sort()
+  }, [tasks, washrooms])
+
+  const uniqueCrew = useMemo(() => {
+    const crewIds = new Set<string>()
+    tasks.forEach((task) => {
+      if (task.assignedCrewId) crewIds.add(task.assignedCrewId)
+    })
+    return Array.from(crewIds).sort()
+  }, [tasks])
+
   // Filter and sort tasks
   const filteredAndSortedTasks = useMemo(() => {
     let filtered = tasks.filter((task) => {
       // Time horizon filter
       if (task.createdTime > timeHorizonEnd) return false
+
+      // Type filter (by title from CSV)
+      if (typeFilter.length > 0) {
+        const title = taskTitleMap.get(task.id) || ''
+        if (!typeFilter.includes(title)) {
+          return false
+        }
+      }
+
+      // Task ID filter (search)
+      if (taskIdFilter) {
+        if (!task.id.toLowerCase().includes(taskIdFilter.toLowerCase())) {
+          return false
+        }
+      }
 
       // State filter
       if (stateFilter.length > 0 && !stateFilter.includes(task.state)) {
@@ -96,6 +155,13 @@ function TaskList({
       if (terminalFilter.length > 0) {
         const washroom = washrooms.find((w) => w.id === task.washroomId)
         if (!washroom || !terminalFilter.includes(washroom.terminal)) {
+          return false
+        }
+      }
+
+      // Washroom filter
+      if (washroomFilter.length > 0) {
+        if (!washroomFilter.includes(task.washroomId)) {
           return false
         }
       }
@@ -144,14 +210,18 @@ function TaskList({
     return filtered
   }, [
     tasks,
+    typeFilter,
+    taskIdFilter,
     stateFilter,
     priorityFilter,
     terminalFilter,
+    washroomFilter,
     crewFilter,
     sortField,
     sortDirection,
     timeHorizonEnd,
     washrooms,
+    taskTitleMap,
   ])
 
   const handleMenuOpen = (task: Task, event: React.MouseEvent<HTMLElement>) => {
@@ -222,49 +292,170 @@ function TaskList({
           <Typography variant="h6" sx={{ fontWeight: 600 }}>
             Task List ({filteredAndSortedTasks.length} tasks)
           </Typography>
-          <Box sx={{ display: 'flex', gap: 1 }}>
-            <FormControl size="small" sx={{ minWidth: 120 }}>
-              <InputLabel>State</InputLabel>
-              <Select
-                multiple
-                value={stateFilter}
-                onChange={(e) => setStateFilter(e.target.value as TaskState[])}
-                label="State"
-              >
-                <MenuItem value="unassigned">Unassigned</MenuItem>
-                <MenuItem value="assigned">Assigned</MenuItem>
-                <MenuItem value="in_progress">In Progress</MenuItem>
-                <MenuItem value="completed">Completed</MenuItem>
-                <MenuItem value="overdue">Overdue</MenuItem>
-              </Select>
-            </FormControl>
-            <FormControl size="small" sx={{ minWidth: 120 }}>
-              <InputLabel>Priority</InputLabel>
-              <Select
-                multiple
-                value={priorityFilter}
-                onChange={(e) => setPriorityFilter(e.target.value as TaskPriority[])}
-                label="Priority"
-              >
-                <MenuItem value="normal">Normal</MenuItem>
-                <MenuItem value="high">High</MenuItem>
-                <MenuItem value="emergency">Emergency</MenuItem>
-              </Select>
-            </FormControl>
+          <Button
+            size="small"
+            startIcon={<Sort />}
+            onClick={() => {
+              const fields: SortField[] = ['sla', 'created', 'priority', 'washroom']
+              const currentIndex = fields.indexOf(sortField)
+              const nextField = fields[(currentIndex + 1) % fields.length]
+              setSortField(nextField)
+              setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc')
+            }}
+          >
+            Sort: {sortField} ({sortDirection})
+          </Button>
+        </Box>
+
+        {/* Filters */}
+        <Box sx={{ display: 'flex', gap: 1, mb: 2, flexWrap: 'wrap' }}>
+          <TextField
+            size="small"
+            placeholder="Search Task ID"
+            value={taskIdFilter}
+            onChange={(e) => setTaskIdFilter(e.target.value)}
+            sx={{ minWidth: 150 }}
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <Search fontSize="small" />
+                </InputAdornment>
+              ),
+              endAdornment: taskIdFilter && (
+                <InputAdornment position="end">
+                  <IconButton
+                    size="small"
+                    onClick={() => setTaskIdFilter('')}
+                    edge="end"
+                  >
+                    <Clear fontSize="small" />
+                  </IconButton>
+                </InputAdornment>
+              ),
+            }}
+          />
+
+          <FormControl size="small" sx={{ minWidth: 150 }}>
+            <InputLabel>Type</InputLabel>
+            <Select
+              multiple
+              value={typeFilter}
+              onChange={(e) => setTypeFilter(e.target.value as string[])}
+              label="Type"
+            >
+              {uniqueTypes.map((type) => (
+                <MenuItem key={type} value={type}>
+                  {type}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+
+          <FormControl size="small" sx={{ minWidth: 120 }}>
+            <InputLabel>State</InputLabel>
+            <Select
+              multiple
+              value={stateFilter}
+              onChange={(e) => setStateFilter(e.target.value as TaskState[])}
+              label="State"
+            >
+              <MenuItem value="unassigned">Unassigned</MenuItem>
+              <MenuItem value="assigned">Assigned</MenuItem>
+              <MenuItem value="in_progress">In Progress</MenuItem>
+              <MenuItem value="completed">Completed</MenuItem>
+              <MenuItem value="overdue">Overdue</MenuItem>
+              <MenuItem value="cancelled">Cancelled</MenuItem>
+            </Select>
+          </FormControl>
+
+          <FormControl size="small" sx={{ minWidth: 120 }}>
+            <InputLabel>Priority</InputLabel>
+            <Select
+              multiple
+              value={priorityFilter}
+              onChange={(e) => setPriorityFilter(e.target.value as TaskPriority[])}
+              label="Priority"
+            >
+              <MenuItem value="normal">Normal</MenuItem>
+              <MenuItem value="high">High</MenuItem>
+              <MenuItem value="emergency">Emergency</MenuItem>
+            </Select>
+          </FormControl>
+
+          <FormControl size="small" sx={{ minWidth: 120 }}>
+            <InputLabel>Terminal</InputLabel>
+            <Select
+              multiple
+              value={terminalFilter}
+              onChange={(e) => setTerminalFilter(e.target.value as string[])}
+              label="Terminal"
+            >
+              {uniqueTerminals.map((terminal) => (
+                <MenuItem key={terminal} value={terminal}>
+                  {terminal}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+
+          <FormControl size="small" sx={{ minWidth: 150 }}>
+            <InputLabel>Washroom</InputLabel>
+            <Select
+              multiple
+              value={washroomFilter}
+              onChange={(e) => setWashroomFilter(e.target.value as string[])}
+              label="Washroom"
+            >
+              {uniqueWashrooms.map((washroomId) => (
+                <MenuItem key={washroomId} value={washroomId}>
+                  {getWashroomName(washroomId)}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+
+          <FormControl size="small" sx={{ minWidth: 150 }}>
+            <InputLabel>Crew</InputLabel>
+            <Select
+              multiple
+              value={crewFilter}
+              onChange={(e) => setCrewFilter(e.target.value as string[])}
+              label="Crew"
+            >
+              {uniqueCrew.map((crewId) => {
+                const crewMember = crew.find((c) => c.id === crewId)
+                return (
+                  <MenuItem key={crewId} value={crewId}>
+                    {crewMember?.name || crewId}
+                  </MenuItem>
+                )
+              })}
+            </Select>
+          </FormControl>
+
+          {(typeFilter.length > 0 ||
+            stateFilter.length > 0 ||
+            priorityFilter.length > 0 ||
+            terminalFilter.length > 0 ||
+            washroomFilter.length > 0 ||
+            crewFilter.length > 0 ||
+            taskIdFilter) && (
             <Button
               size="small"
-              startIcon={<Sort />}
+              startIcon={<Clear />}
               onClick={() => {
-                const fields: SortField[] = ['sla', 'created', 'priority', 'washroom']
-                const currentIndex = fields.indexOf(sortField)
-                const nextField = fields[(currentIndex + 1) % fields.length]
-                setSortField(nextField)
-                setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc')
+                setTypeFilter([])
+                setStateFilter([])
+                setPriorityFilter([])
+                setTerminalFilter([])
+                setWashroomFilter([])
+                setCrewFilter([])
+                setTaskIdFilter('')
               }}
             >
-              Sort: {sortField} ({sortDirection})
+              Clear Filters
             </Button>
-          </Box>
+          )}
         </Box>
 
         <TableContainer sx={{ maxHeight: 600 }}>
@@ -287,7 +478,15 @@ function TaskList({
                 <TableRow>
                   <TableCell colSpan={9} align="center">
                     <Typography variant="body2" color="text.secondary">
-                      No tasks found matching filters
+                      {typeFilter.length > 0 ||
+                      stateFilter.length > 0 ||
+                      priorityFilter.length > 0 ||
+                      terminalFilter.length > 0 ||
+                      washroomFilter.length > 0 ||
+                      crewFilter.length > 0 ||
+                      taskIdFilter
+                        ? 'No tasks found matching filters'
+                        : 'No tasks available'}
                     </Typography>
                   </TableCell>
                 </TableRow>
@@ -310,7 +509,7 @@ function TaskList({
                       </TableCell>
                       <TableCell>
                         <Typography variant="body2">
-                          {task.type.replace('_', ' ')}
+                          {taskTitleMap.get(task.id) || task.type.replace('_', ' ')}
                         </Typography>
                       </TableCell>
                       <TableCell>
@@ -411,7 +610,8 @@ function TaskList({
                           )}
                           {task.state !== 'completed' && task.state !== 'cancelled' && onCancel && (
                             <MenuItem onClick={() => {
-                              // TODO: Open cancel dialog with reason
+                              // Open cancel dialog - handled by parent component
+                              onCancel(task, '')
                               handleMenuClose(task.id)
                             }}>
                               <Warning sx={{ mr: 1 }} fontSize="small" />
