@@ -14,6 +14,7 @@ const CrewShifts = lazy(() => import('./pages/CrewShifts'))
 const LocationsConfig = lazy(() => import('./pages/LocationsConfig'))
 const ActivityLog = lazy(() => import('./pages/ActivityLog'))
 const HelpPlaybook = lazy(() => import('./pages/HelpPlaybook'))
+const Notifications = lazy(() => import('./pages/Notifications'))
 
 function App() {
   return (
@@ -31,11 +32,13 @@ function App() {
           <Route path="/locations-config" element={<LocationsConfig />} />
           <Route path="/activity-log" element={<ActivityLog />} />
           <Route path="/help-playbook" element={<HelpPlaybook />} />
+          <Route path="/notifications" element={<Notifications />} />
         </Routes>
       </Suspense>
     </Layout>
   )
 }
+
 
 export default App
 

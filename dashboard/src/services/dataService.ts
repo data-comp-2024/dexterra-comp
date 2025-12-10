@@ -16,6 +16,9 @@ import {
   DemandForecast,
   RiskForecast,
   ActivityLogEntry,
+  Notification,
+  WashroomType,
+  TaskType,
 } from '../types'
 import { DATA_ROOT } from '../constants'
 
@@ -75,6 +78,7 @@ import {
   generateMockDemandForecast,
   generateMockRiskForecast,
   generateMockActivityLog,
+  generateMockNotifications,
 } from './mockData'
 import { normalizeWashroomId, validateWashroom, mapKioskPathToWashroomId } from './dataNormalization'
 
@@ -202,7 +206,7 @@ export async function loadSimulationData(
  * Load Happy Score monthly time series data from CSV
  * Format: Monthly aggregated data with Date, Happy Index, and Bathroom columns
  */
-async function loadMonthlyHappyScoreData(washrooms: Washroom[] = []): Promise<HappyScore[]> {
+async function loadMonthlyHappyScoreData(_washrooms: Washroom[] = []): Promise<HappyScore[]> {
   try {
     const possiblePaths = [
       '/df_monthly_distribution.csv', // Since publicDir is 'data', files are at root
@@ -251,8 +255,9 @@ async function loadMonthlyHappyScoreData(washrooms: Washroom[] = []): Promise<Ha
           // Log first row for debugging
           if (results.data.length > 0) {
             console.log('Sample monthly CSV row:', results.data[0])
-            console.log('Available columns:', Object.keys(results.data[0]))
+            console.log('Available columns:', Object.keys(results.data[0] as object))
           }
+
 
           results.data.forEach((row: any, index: number) => {
             try {
@@ -330,7 +335,7 @@ async function loadMonthlyHappyScoreData(washrooms: Washroom[] = []): Promise<Ha
  * Load Happy Score hourly distribution data from CSV
  * Format: Hourly aggregated data with Time, Happy Index, and Bathroom columns
  */
-async function loadHourlyHappyScoreData(washrooms: Washroom[] = []): Promise<HappyScore[]> {
+async function loadHourlyHappyScoreData(_washrooms: Washroom[] = []): Promise<HappyScore[]> {
   try {
     const possiblePaths = [
       '/bathroom_hourly_distribution.csv', // Since publicDir is 'data', files are at root
@@ -908,6 +913,7 @@ export async function loadFlights(): Promise<Flight[]> {
   try {
     // Try multiple possible paths
     const possiblePaths = [
+      '/unified_flight_data.csv',
       'data/unified_flight_data.csv',
       '../data/unified_flight_data.csv',
       './data/unified_flight_data.csv',
@@ -1072,49 +1078,17 @@ export async function loadActivityLog(): Promise<ActivityLogEntry[]> {
   }
 }
 
+/**
+ * Get notifications list
+ */
+export async function fetchNotificationsList(): Promise<Notification[]> {
+  console.log('fetchNotificationsList called')
+  // In a real app, this would fetch from an API
+  // For now, we'll generate mock data
+  return generateMockNotifications()
+}
+
 // Helper functions
-
-function extractTerminal(name: string): string {
-  // Extract terminal from name (e.g., "T1-134-MEN" -> "T1")
-  // For numeric gate names (e.g., "171"), default to T1
-  const match = name.match(/^T(\d+)/i)
-  if (match) {
-    return `T${match[1]}`
-  }
-  // If it's just a number, assume T1 (most common terminal)
-  if (/^\d+$/.test(name.trim())) {
-    return 'T1'
-  }
-  return 'Unknown'
-}
-
-function inferWashroomType(name: string): Washroom['type'] {
-  const lower = name.toLowerCase()
-  if (lower.includes('family')) return 'family'
-  if (lower.includes('accessible') || lower.includes('access')) return 'accessible'
-  if (lower.includes('staff')) return 'staff-only'
-  return 'standard'
-}
-
-function mapKioskToWashroomId(path: string): string {
-  // Map kiosk path to washroom ID
-  // This is a simplified mapping - full implementation would need proper mapping
-  const match = path.match(/Gate\s*(\d+)/i)
-  if (match) {
-    return `T1-${match[1]}-MEN` // Simplified assumption
-  }
-  return 'unknown'
-}
-
-function convertResponseToScore(response: number | string): number {
-  // Convert 1-4 scale to 0-100 scale
-  // Assuming 1 = very unhappy, 4 = very happy
-  const num = typeof response === 'string' ? parseInt(response, 10) : response
-  if (isNaN(num) || num < 1 || num > 4) return 50 // Default to neutral
-  
-  // Map 1-4 to 0-100
-  return ((num - 1) / 3) * 100
-}
 
 /**
  * Load bathroom catalog data from bathroom.json
@@ -1122,6 +1096,7 @@ function convertResponseToScore(response: number | string): number {
 export async function loadBathroomCatalog(): Promise<BathroomCatalogItem[]> {
   try {
     const possiblePaths = [
+      '/bathroom.json',
       'data/bathroom.json',
       '../data/bathroom.json',
       './data/bathroom.json',
@@ -1173,6 +1148,7 @@ export async function loadBathroomCatalog(): Promise<BathroomCatalogItem[]> {
 export async function loadGates(): Promise<GateItem[]> {
   try {
     const possiblePaths = [
+      '/gates.json',
       'data/gates.json',
       '../data/gates.json',
       './data/gates.json',
@@ -1222,6 +1198,7 @@ export async function loadGates(): Promise<GateItem[]> {
 export async function loadJanitorClosets(): Promise<JanitorClosetItem[]> {
   try {
     const possiblePaths = [
+      '/janitorCloset.json',
       'data/janitorCloset.json',
       '../data/janitorCloset.json',
       './data/janitorCloset.json',

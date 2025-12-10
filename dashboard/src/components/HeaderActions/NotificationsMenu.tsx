@@ -2,7 +2,7 @@
  * Notifications Menu Component
  */
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   Menu,
   MenuItem,
@@ -12,61 +12,17 @@ import {
   Typography,
   Box,
   Chip,
-  IconButton,
 } from '@mui/material'
 import {
-  NotificationsOutlined,
   Warning,
   CheckCircle,
   Info,
   Error as ErrorIcon,
 } from '@mui/icons-material'
 import { formatDistanceToNow } from 'date-fns'
-
-interface Notification {
-  id: string
-  type: 'info' | 'success' | 'warning' | 'error'
-  title: string
-  message: string
-  timestamp: Date
-  read: boolean
-}
-
-// Mock notifications - in production, these would come from Redux/API
-const mockNotifications: Notification[] = [
-  {
-    id: '1',
-    type: 'error',
-    title: 'Emergency Alert',
-    message: 'Emergency detected at T1-134-MEN',
-    timestamp: new Date(Date.now() - 5 * 60 * 1000),
-    read: false,
-  },
-  {
-    id: '2',
-    type: 'warning',
-    title: 'SLA Breach',
-    message: 'Task T-2024-001 is overdue',
-    timestamp: new Date(Date.now() - 15 * 60 * 1000),
-    read: false,
-  },
-  {
-    id: '3',
-    type: 'success',
-    title: 'Task Completed',
-    message: 'Task T-2024-002 completed successfully',
-    timestamp: new Date(Date.now() - 30 * 60 * 1000),
-    read: true,
-  },
-  {
-    id: '4',
-    type: 'info',
-    title: 'System Update',
-    message: 'Optimization completed for next 2 hours',
-    timestamp: new Date(Date.now() - 60 * 60 * 1000),
-    read: true,
-  },
-]
+import { useNavigate } from 'react-router-dom'
+import { Notification } from '../../types'
+import { fetchNotificationsList } from '../../services'
 
 interface NotificationsMenuProps {
   anchorEl: HTMLElement | null
@@ -75,7 +31,24 @@ interface NotificationsMenuProps {
 }
 
 function NotificationsMenu({ anchorEl, onClose, badgeCount }: NotificationsMenuProps) {
-  const [notifications] = useState<Notification[]>(mockNotifications)
+  const [notifications, setNotifications] = useState<Notification[]>([])
+  const navigate = useNavigate()
+
+  useEffect(() => {
+    const fetchNotifications = async () => {
+      try {
+        const data = await fetchNotificationsList()
+        setNotifications(data)
+      } catch (error) {
+        console.error('Failed to fetch notifications:', error)
+      }
+    }
+
+    if (Boolean(anchorEl)) {
+      fetchNotifications()
+    }
+  }, [anchorEl])
+
   const unreadCount = notifications.filter((n) => !n.read).length
 
   const getIcon = (type: Notification['type']) => {
@@ -96,6 +69,11 @@ function NotificationsMenu({ anchorEl, onClose, badgeCount }: NotificationsMenuP
     console.log('Notification clicked:', notification.id)
     // In production, mark as read and navigate to relevant page
     onClose()
+  }
+
+  const handleViewAll = () => {
+    onClose()
+    navigate('/notifications')
   }
 
   return (
@@ -172,7 +150,7 @@ function NotificationsMenu({ anchorEl, onClose, badgeCount }: NotificationsMenuP
         ))
       )}
       <Divider />
-      <MenuItem onClick={onClose}>
+      <MenuItem onClick={handleViewAll}>
         <ListItemText primary="View all notifications" primaryTypographyProps={{ align: 'center' }} />
       </MenuItem>
     </Menu>

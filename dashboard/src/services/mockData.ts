@@ -20,6 +20,7 @@ import {
   DemandForecast,
   RiskForecast,
   ActivityLogEntry,
+  Notification,
 } from '../types'
 import { HAPPY_SCORE_THRESHOLD } from '../constants'
 
@@ -573,3 +574,44 @@ export function generateMockActivityLog(count: number = 100): ActivityLogEntry[]
   // Sort by timestamp (newest first)
   return entries.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())
 }
+
+/**
+ * Generate mock notifications
+ */
+export function generateMockNotifications(): Notification[] {
+  return [
+    {
+      id: '1',
+      type: 'error',
+      title: 'Emergency Alert',
+      message: 'Emergency detected at T1-134-MEN',
+      timestamp: new Date(Date.now() - 5 * 60 * 1000),
+      read: false,
+    },
+    {
+      id: '2',
+      type: 'warning',
+      title: 'SLA Breach',
+      message: 'Task T-2024-001 is overdue',
+      timestamp: new Date(Date.now() - 15 * 60 * 1000),
+      read: false,
+    },
+    {
+      id: '3',
+      type: 'success',
+      title: 'Task Completed',
+      message: 'Task T-2024-002 completed successfully',
+      timestamp: new Date(Date.now() - 30 * 60 * 1000),
+      read: true,
+    },
+    {
+      id: '4',
+      type: 'info',
+      title: 'System Update',
+      message: 'Optimization completed for next 2 hours',
+      timestamp: new Date(Date.now() - 60 * 60 * 1000),
+      read: true,
+    },
+  ]
+}
+

@@ -9,7 +9,7 @@ import {
   Avatar,
   Divider,
 } from '@mui/material'
-import DexterraLogo from '../../data/DexterraLogo.png'
+const DexterraLogo = '/DexterraLogo.png'
 import {
   NotificationsOutlined,
   HelpOutline,
@@ -35,7 +35,7 @@ function Layout({ children }: LayoutProps) {
   const navigate = useNavigate()
   const user = useSelector((state: RootState) => state.user)
   const connectionStatus = useSelector((state: RootState) => state.ui.connectionStatus)
-  
+
   // Menu anchor states
   const [notificationsAnchor, setNotificationsAnchor] = useState<HTMLElement | null>(null)
   const [shareAnchor, setShareAnchor] = useState<HTMLElement | null>(null)
@@ -79,7 +79,7 @@ function Layout({ children }: LayoutProps) {
       <a href="#main-content" className="skip-link">
         Skip to main content
       </a>
-      
+
       {/* Top Header Bar */}
       <AppBar
         position="static"
@@ -122,8 +122,8 @@ function Layout({ children }: LayoutProps) {
 
           {/* Action Buttons */}
           <Tooltip title="Notifications">
-            <IconButton 
-              color="inherit" 
+            <IconButton
+              color="inherit"
               sx={{ color: 'text.secondary', mr: 1 }}
               aria-label="View notifications"
               onClick={(e) => setNotificationsAnchor(e.currentTarget)}
@@ -134,8 +134,8 @@ function Layout({ children }: LayoutProps) {
             </IconButton>
           </Tooltip>
           <Tooltip title="Help & Support">
-            <IconButton 
-              color="inherit" 
+            <IconButton
+              color="inherit"
               sx={{ color: 'text.secondary', mr: 1 }}
               aria-label="Open help"
               onClick={() => navigate('/help-playbook')}
@@ -144,8 +144,8 @@ function Layout({ children }: LayoutProps) {
             </IconButton>
           </Tooltip>
           <Tooltip title="Share Dashboard">
-            <IconButton 
-              color="inherit" 
+            <IconButton
+              color="inherit"
               sx={{ color: 'text.secondary', mr: 1 }}
               aria-label="Share dashboard"
               onClick={(e) => setShareAnchor(e.currentTarget)}
@@ -154,8 +154,8 @@ function Layout({ children }: LayoutProps) {
             </IconButton>
           </Tooltip>
           <Tooltip title="Settings">
-            <IconButton 
-              color="inherit" 
+            <IconButton
+              color="inherit"
               sx={{ color: 'text.secondary', mr: 2 }}
               aria-label="Open settings"
               onClick={() => setSettingsOpen(true)}
@@ -187,8 +187,8 @@ function Layout({ children }: LayoutProps) {
                   .toUpperCase()}
               </Avatar>
             </Tooltip>
-            <Typography 
-              variant="body2" 
+            <Typography
+              variant="body2"
               sx={{ ml: 1.5, fontWeight: 500, cursor: 'pointer' }}
               aria-label={`Current user: ${user.name}`}
               onClick={(e) => setUserMenuAnchor(e.currentTarget)}
