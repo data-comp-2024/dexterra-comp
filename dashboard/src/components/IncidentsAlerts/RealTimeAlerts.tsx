@@ -25,9 +25,12 @@ import {
   Assignment,
   CheckCircle,
 } from '@mui/icons-material'
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
+import { useDispatch } from 'react-redux'
+import { useLocation } from 'react-router-dom'
 import { useData } from '../../hooks/useData'
 import { EmergencyEvent } from '../../types'
+import { updateEmergencyEvent, updateHappyScore, addActivityLogEntry } from '../../store/slices/dataSlice'
 import { format, differenceInMinutes } from 'date-fns'
 import { HAPPY_SCORE_THRESHOLD, CURRENT_DATE } from '../../constants'
 import { calculateAverageHappyScore, isWashroomUnhappy } from '../../services/dataTransform'
@@ -44,10 +47,16 @@ interface AlertItem {
 }
 
 function RealTimeAlerts() {
+  const dispatch = useDispatch()
+  const location = useLocation()
   const { emergencyEvents, washrooms, happyScores, crew } = useData()
   const [anchorEl, setAnchorEl] = useState<{ [key: string]: HTMLElement | null }>({})
   const [typeFilter, setTypeFilter] = useState<string[]>([])
   const [severityFilter, setSeverityFilter] = useState<string[]>([])
+
+  // Parse search query
+  const searchParams = new URLSearchParams(location.search)
+  const searchId = searchParams.get('search')
 
   const alerts = useMemo(() => {
     const alertItems: AlertItem[] = []
@@ -126,6 +135,68 @@ function RealTimeAlerts() {
     handleMenuClose(alert.id)
   }
 
+  const handleResolve = (alert: AlertItem) => {
+    if (alert.type === 'emergency') {
+      const event = alert.data as EmergencyEvent
+      const updates: Partial<EmergencyEvent> = {
+        status: 'resolved',
+        resolutionTime: new Date(CURRENT_DATE.getTime() + 5 * 60 * 1000)
+      }
+      if (!event.firstResponseTime) {
+        updates.firstResponseTime = new Date(CURRENT_DATE.getTime() + 1 * 60 * 1000)
+      }
+      dispatch(updateEmergencyEvent({ ...event, ...updates }))
+      dispatch(addActivityLogEntry({
+        id: `log-${Date.now()}`,
+        timestamp: new Date(),
+        userId: 'current-user',
+        userName: 'Current User',
+        actionType: 'emergency_resolved',
+        affectedEntityType: 'washroom',
+        affectedEntityId: alert.washroomId,
+        details: { message: `Resolved emergency at ${alert.washroomName}` }
+      }))
+    } else {
+      // Create a resolved emergency event for non-emergency alerts (e.g. unhappy washroom)
+      // so it appears in incident history
+      const newEvent: EmergencyEvent = {
+        id: `resolved-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        type: alert.type === 'unhappy' ? 'unhappy_washroom' : 'other',
+        washroomId: alert.washroomId,
+        detectedAt: alert.detectedAt,
+        source: 'sensor',
+        severity: alert.severity,
+        status: 'resolved',
+        firstResponseTime: new Date(CURRENT_DATE.getTime() + 1 * 60 * 1000),
+        resolutionTime: new Date(CURRENT_DATE.getTime() + 5 * 60 * 1000),
+        assignedCrewId: alert.assignedCrewId
+      }
+      dispatch(updateEmergencyEvent(newEvent))
+
+      // If it was an unhappy alert, reset the happy score so the alert disappears
+      if (alert.type === 'unhappy') {
+        dispatch(updateHappyScore({
+          washroomId: alert.washroomId,
+          score: 100,
+          timestamp: new Date(CURRENT_DATE.getTime() + 2000),
+          source: 'aggregated'
+        }))
+      }
+
+      dispatch(addActivityLogEntry({
+        id: `log-${Date.now()}`,
+        timestamp: new Date(),
+        userId: 'current-user',
+        userName: 'Current User',
+        actionType: 'emergency_resolved',
+        affectedEntityType: 'washroom',
+        affectedEntityId: alert.washroomId,
+        details: { message: `Resolved alert (${alert.type}) at ${alert.washroomName}` }
+      }))
+    }
+    handleMenuClose(alert.id)
+  }
+
   const getSeverityColor = (severity: string) => {
     switch (severity) {
       case 'critical':
@@ -145,11 +216,11 @@ function RealTimeAlerts() {
     const event = alert.data as EmergencyEvent
     const now = CURRENT_DATE
     const minutesSinceDetection = differenceInMinutes(now, alert.detectedAt)
-    
+
     // SLA: 10 minutes for emergencies
     const slaMinutes = 10
     const progress = Math.min((minutesSinceDetection / slaMinutes) * 100, 100)
-    
+
     return {
       minutesSinceDetection,
       slaMinutes,
@@ -213,21 +284,27 @@ function RealTimeAlerts() {
           ) : (
             alerts.map((alert) => {
               const slaProgress = getSlaProgress(alert)
+              const isHighlighted = alert.id === searchId
 
               return (
                 <ListItem
                   key={alert.id}
+                  ref={(el) => {
+                    if (isHighlighted && el) {
+                      el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+                    }
+                  }}
                   sx={{
-                    borderLeft: `4px solid ${
-                      alert.severity === 'critical' || alert.severity === 'high'
-                        ? '#D32F2F'
-                        : alert.severity === 'medium'
+                    borderLeft: `4px solid ${alert.severity === 'critical' || alert.severity === 'high'
+                      ? '#D32F2F'
+                      : alert.severity === 'medium'
                         ? '#ED6C02'
                         : '#FFC107'
-                    }`,
+                      }`,
                     mb: 1,
-                    bgcolor: 'action.hover',
+                    bgcolor: isHighlighted ? 'action.selected' : 'action.hover',
                     borderRadius: 1,
+                    border: isHighlighted ? '2px solid #1976d2' : undefined,
                   }}
                 >
                   <Box sx={{ mr: 2 }}>
@@ -316,9 +393,9 @@ function RealTimeAlerts() {
                       <Assignment sx={{ mr: 1 }} fontSize="small" />
                       Assign to crew
                     </MenuItem>
-                    <MenuItem onClick={() => handleMenuClose(alert.id)}>
+                    <MenuItem onClick={() => handleResolve(alert)}>
                       <CheckCircle sx={{ mr: 1 }} fontSize="small" />
-                      Acknowledge
+                      Resolve
                     </MenuItem>
                   </Menu>
                 </ListItem>

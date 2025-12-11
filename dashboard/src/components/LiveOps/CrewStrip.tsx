@@ -16,17 +16,24 @@ import {
   AccessTime,
 } from '@mui/icons-material'
 import { useMemo } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useData } from '../../hooks/useData'
 import { Crew, CrewStatus } from '../../types'
 import { format, formatDistanceToNow } from 'date-fns'
 import { CURRENT_DATE } from '../../constants'
 
 function CrewStrip() {
+  const navigate = useNavigate()
   const { crew, tasks, washrooms } = useData()
 
   const onShiftCrew = useMemo(() => {
     return crew.filter(
-      (c) => c.status === 'on_shift' || c.status === 'available' || c.status === 'busy'
+      (c) =>
+        c.status === 'on_shift' ||
+        c.status === 'available' ||
+        c.status === 'busy' ||
+        c.status === 'on_break' ||
+        c.status === 'unavailable'
     )
   }, [crew])
 
@@ -52,7 +59,7 @@ function CrewStrip() {
     if (currentTask && currentTask.startedTime && currentTask.estimatedDurationMinutes) {
       const completionTime = new Date(
         currentTask.startedTime.getTime() +
-          currentTask.estimatedDurationMinutes * 60 * 1000
+        currentTask.estimatedDurationMinutes * 60 * 1000
       )
       const now = CURRENT_DATE
       if (completionTime > now) {
@@ -130,16 +137,20 @@ function CrewStrip() {
               return (
                 <Card
                   key={crewMember.id}
+                  onClick={() => navigate(`/crew-shifts?search=${crewMember.id}`)}
                   sx={{
                     minWidth: 280,
                     maxWidth: 280,
-                    border: `2px solid ${
-                      crewMember.status === 'available'
-                        ? '#06A77D'
-                        : crewMember.status === 'busy'
+                    cursor: 'pointer',
+                    border: `2px solid ${crewMember.status === 'available'
+                      ? '#06A77D'
+                      : crewMember.status === 'busy'
                         ? '#ED6C02'
                         : '#7B2CBF'
-                    }`,
+                      }`,
+                    '&:hover': {
+                      boxShadow: 3,
+                    },
                   }}
                 >
                   <CardContent>

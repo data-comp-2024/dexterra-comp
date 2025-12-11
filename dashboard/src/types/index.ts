@@ -96,6 +96,7 @@ export type EmergencyType =
   | 'just_too_much_poop'
   | 'slip_hazard'
   | 'odor_threshold_exceeded'
+  | 'unhappy_washroom'
   | 'other'
 
 // Section 4.5: Crew and Crew Status
@@ -159,6 +160,7 @@ export interface ActivityLogEntry {
   userId: string
   userName: string
   actionType:
+    | 'task_created'
     | 'task_assigned'
     | 'task_reassigned'
     | 'task_cancelled'
@@ -166,6 +168,10 @@ export interface ActivityLogEntry {
     | 'optimization_run'
     | 'config_changed'
     | 'crew_availability_changed'
+    | 'crew_updated'
+    | 'washroom_deleted'
+    | 'emergency_resolved'
+    | 'task_completed'
   affectedEntityType: 'task' | 'washroom' | 'crew' | 'config'
   affectedEntityId: string
   details: Record<string, unknown>

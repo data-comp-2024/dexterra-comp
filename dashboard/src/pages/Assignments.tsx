@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
+import { useDispatch } from 'react-redux'
 import {
   Typography,
   Box,
@@ -18,28 +19,18 @@ import CancelTaskDialog from '../components/Assignments/CancelTaskDialog'
 import AddTaskDialog from '../components/Assignments/AddTaskDialog'
 import { useData } from '../hooks/useData'
 import { useOptimization } from '../context/OptimizationContext'
-import { Task } from '../types'
-import { loadHistoricalTasks, getAvailableHistoricalDates, loadTasks } from '../services/dataService'
+import { Task, ActivityLogEntry } from '../types'
+import { loadHistoricalTasks, getAvailableHistoricalDates } from '../services/dataService'
+import { updateTask, deleteTask, addActivityLogEntry } from '../store/slices/dataSlice'
 import { format, parseISO } from 'date-fns'
 import Papa from 'papaparse'
 import { CURRENT_DATE } from '../constants'
 
 function Assignments() {
-  // Note: Assignments page does NOT use auto-refresh to prevent random data changes
-  // Data is loaded once on mount and only refreshes manually
-  const { crew, washrooms } = useData()
+  const { crew, washrooms, tasks: reduxTasks, taskTitleMap: reduxTaskTitleMap } = useData()
+  const dispatch = useDispatch()
   const { optimizedTasks, hasOptimizedTasks } = useOptimization()
-  const [tasks, setTasks] = useState<Task[]>([])
-  const [currentTaskTitleMap, setCurrentTaskTitleMap] = useState<Map<string, string>>(new Map())
-  const [selectedTask, setSelectedTask] = useState<Task | null>(null)
-  const [assignDialogOpen, setAssignDialogOpen] = useState(false)
-  const [cancelDialogOpen, setCancelDialogOpen] = useState(false)
-  const [addDialogOpen, setAddDialogOpen] = useState(false)
-  const [assignTask, setAssignTask] = useState<Task | null>(null)
-  const [cancelTask, setCancelTask] = useState<Task | null>(null)
-  const [assignMode, setAssignMode] = useState<'assign' | 'reassign'>('assign')
-  const [nextTaskId, setNextTaskId] = useState<number>(1)
-  
+
   // Historical tasks view state
   const [viewMode, setViewMode] = useState<'current' | 'historical'>('current')
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
@@ -51,52 +42,62 @@ function Assignments() {
   const [loadingHistorical, setLoadingHistorical] = useState(false)
   const [allTaskTypes, setAllTaskTypes] = useState<string[]>([])
 
-  // Load current tasks on mount - filter out normal tasks for Dec 31, 2024
-  useEffect(() => {
-    const loadCurrentTasks = async () => {
-      try {
-        const washroomIds = washrooms.map((w) => w.id)
-        const crewIds = crew.map((c) => c.id)
-        const { tasks: loadedTasks, taskTitleMap } = await loadTasks(washroomIds, crewIds)
-        
-        // Filter out normal (non-emergency) tasks for Dec 31, 2024
-        const todayStart = new Date(CURRENT_DATE)
-        todayStart.setHours(0, 0, 0, 0)
-        const todayEnd = new Date(todayStart)
-        todayEnd.setDate(todayEnd.getDate() + 1)
-        
-        const filteredTasks = loadedTasks.filter((t) => {
-          // If task is from today (Dec 31, 2024), only keep emergency tasks
-          if (t.createdTime >= todayStart && t.createdTime < todayEnd) {
-            return t.priority === 'emergency' || t.type === 'emergency_cleaning'
-          }
-          // Keep all tasks from other days
-          return true
-        })
-        
-        // If we have optimized tasks, use those instead of normal tasks
-        const tasksToShow = hasOptimizedTasks
-          ? [...filteredTasks, ...optimizedTasks] // Show emergency tasks + optimized tasks
-          : filteredTasks // Only show emergency tasks if no optimization
-        
-        setTasks(tasksToShow)
-        setCurrentTaskTitleMap(taskTitleMap)
-        
-        // Find the highest task ID to generate new ones
-        const maxId = tasksToShow.reduce((max, task) => {
-          const numId = parseInt(task.id.replace(/\D/g, ''), 10)
-          return isNaN(numId) ? max : Math.max(max, numId)
-        }, 0)
-        setNextTaskId(maxId + 1)
-      } catch (error) {
-        console.error('Failed to load current tasks:', error)
-      }
+  // UI State
+  const [selectedTask, setSelectedTask] = useState<Task | null>(null)
+  const [assignDialogOpen, setAssignDialogOpen] = useState(false)
+  const [cancelDialogOpen, setCancelDialogOpen] = useState(false)
+  const [addDialogOpen, setAddDialogOpen] = useState(false)
+  const [assignTask, setAssignTask] = useState<Task | null>(null)
+  const [cancelTask, setCancelTask] = useState<Task | null>(null)
+  const [assignMode, setAssignMode] = useState<'assign' | 'reassign'>('assign')
+  const [nextTaskId, setNextTaskId] = useState<number>(1)
+
+  // Derived state for current tasks
+  const currentTaskTitleMap = useMemo(() => {
+    const map = new Map<string, string>()
+    if (reduxTaskTitleMap) {
+      Object.entries(reduxTaskTitleMap).forEach(([key, value]) => {
+        map.set(key, value)
+      })
     }
+    return map
+  }, [reduxTaskTitleMap])
+
+  // Combine Redux tasks with optimization logic
+  const currentTasks = useMemo(() => {
+    // Filter out normal (non-emergency) tasks for Dec 31, 2024
+    const todayStart = new Date(CURRENT_DATE)
+    todayStart.setHours(0, 0, 0, 0)
+    const todayEnd = new Date(todayStart)
+    todayEnd.setDate(todayEnd.getDate() + 1)
     
-    if (washrooms.length > 0 && crew.length > 0) {
-      loadCurrentTasks()
+    const filteredTasks = reduxTasks.filter((t) => {
+      // If task is from today (Dec 31, 2024), only keep emergency tasks
+      if (t.createdTime >= todayStart && t.createdTime < todayEnd) {
+        return t.priority === 'emergency' || t.type === 'emergency_cleaning'
+      }
+      // Keep all tasks from other days
+      return true
+    })
+    
+    // If we have optimized tasks, use those instead of normal tasks
+    return hasOptimizedTasks
+      ? [...filteredTasks, ...optimizedTasks] // Show emergency tasks + optimized tasks
+      : filteredTasks // Only show emergency tasks if no optimization
+  }, [reduxTasks, hasOptimizedTasks, optimizedTasks])
+
+  const tasks = viewMode === 'current' ? currentTasks : historicalTasks
+
+  // Initialize nextTaskId based on loaded tasks
+  useEffect(() => {
+    if (currentTasks.length > 0) {
+      const maxId = currentTasks.reduce((max, task) => {
+        const numId = parseInt(task.id.replace(/\D/g, ''), 10)
+        return isNaN(numId) ? max : Math.max(max, numId)
+      }, 0)
+      setNextTaskId(maxId + 1)
     }
-  }, [washrooms.length, crew.length, hasOptimizedTasks, optimizedTasks])
+  }, [currentTasks])
 
   // Load available dates and task types on mount
   useEffect(() => {
@@ -187,76 +188,41 @@ function Assignments() {
   }
 
   const handleAssign = (task: Task, crewId: string) => {
-    setTasks((prevTasks) =>
-      prevTasks.map((t) =>
-        t.id === task.id
-          ? {
-              ...t,
-              assignedCrewId: crewId,
-              state: 'assigned' as const,
-            }
-          : t
-      )
-    )
-    // Update selected task if it's the same one
+    const updatedTask = {
+      ...task,
+      assignedCrewId: crewId,
+      state: 'assigned' as const,
+    }
+    dispatch(updateTask(updatedTask))
+
     if (selectedTask?.id === task.id) {
-      const updatedTask = tasks.find((t) => t.id === task.id)
-      if (updatedTask) {
-        setSelectedTask({
-          ...updatedTask,
-          assignedCrewId: crewId,
-          state: 'assigned' as const,
-        })
-      }
+      setSelectedTask(updatedTask)
     }
   }
 
   const handleReassign = (task: Task, crewId: string) => {
-    setTasks((prevTasks) =>
-      prevTasks.map((t) =>
-        t.id === task.id
-          ? {
-              ...t,
-              assignedCrewId: crewId,
-              state: t.state === 'in_progress' ? ('in_progress' as const) : ('assigned' as const),
-            }
-          : t
-      )
-    )
-    // Update selected task if it's the same one
+    const updatedTask = {
+      ...task,
+      assignedCrewId: crewId,
+      state: task.state === 'in_progress' ? ('in_progress' as const) : ('assigned' as const),
+    }
+    dispatch(updateTask(updatedTask))
+
     if (selectedTask?.id === task.id) {
-      const updatedTask = tasks.find((t) => t.id === task.id)
-      if (updatedTask) {
-        setSelectedTask({
-          ...updatedTask,
-          assignedCrewId: crewId,
-        })
-      }
+      setSelectedTask(updatedTask)
     }
   }
 
   const handleUnassign = (task: Task) => {
-    setTasks((prevTasks) =>
-      prevTasks.map((t) =>
-        t.id === task.id
-          ? {
-              ...t,
-              assignedCrewId: undefined,
-              state: 'unassigned' as const,
-            }
-          : t
-      )
-    )
-    // Update selected task if it's the same one
+    const updatedTask = {
+      ...task,
+      assignedCrewId: undefined,
+      state: 'unassigned' as const,
+    }
+    dispatch(updateTask(updatedTask))
+
     if (selectedTask?.id === task.id) {
-      const updatedTask = tasks.find((t) => t.id === task.id)
-      if (updatedTask) {
-        setSelectedTask({
-          ...updatedTask,
-          assignedCrewId: undefined,
-          state: 'unassigned' as const,
-        })
-      }
+      setSelectedTask(updatedTask)
     }
   }
 
@@ -267,30 +233,17 @@ function Assignments() {
 
   const handleCancel = (task: Task, reason: string) => {
     if (!reason) return // Don't cancel if no reason provided
-    
-    setTasks((prevTasks) =>
-      prevTasks.map((t) =>
-        t.id === task.id
-          ? {
-              ...t,
-              state: 'cancelled' as const,
-              cancelledTime: new Date(),
-              cancellationReason: reason,
-            }
-          : t
-      )
-    )
-    // Update selected task if it's the same one
+
+    const updatedTask = {
+      ...task,
+      state: 'cancelled' as const,
+      cancelledTime: new Date(),
+      cancellationReason: reason,
+    }
+    dispatch(updateTask(updatedTask))
+
     if (selectedTask?.id === task.id) {
-      const updatedTask = tasks.find((t) => t.id === task.id)
-      if (updatedTask) {
-        setSelectedTask({
-          ...updatedTask,
-          state: 'cancelled' as const,
-          cancelledTime: new Date(),
-          cancellationReason: reason,
-        })
-      }
+      setSelectedTask(updatedTask)
     }
   }
 
@@ -307,50 +260,43 @@ function Assignments() {
       ...taskData,
       id: newTaskId,
     }
-    
-    setTasks((prevTasks) => [...prevTasks, newTask])
-    
-    // Store the title in the title map
-    const taskTypeTitle = taskData.type.replace('_', ' ')
-    // Try to find matching title from available types
-    const availableTypes = Array.from(currentTaskTitleMap.values())
-    const matchingTitle = availableTypes.find((t) => 
-      t.toLowerCase().includes(taskTypeTitle.toLowerCase()) ||
-      taskTypeTitle.toLowerCase().includes(t.toLowerCase())
-    ) || taskTypeTitle
-    
-    setCurrentTaskTitleMap((prev) => {
-      const newMap = new Map(prev)
-      newMap.set(newTaskId, matchingTitle)
-      return newMap
-    })
-    
+
+    dispatch(updateTask(newTask))
+
+    // Add activity log entry
+    const logEntry: ActivityLogEntry = {
+      id: `log-${Date.now()}`,
+      timestamp: new Date(),
+      userId: 'current-user', // Mock user ID
+      userName: 'Dispatcher', // Mock user name
+      actionType: 'task_created',
+      affectedEntityType: 'task',
+      affectedEntityId: newTaskId,
+      details: {
+        taskType: newTask.type,
+        priority: newTask.priority,
+        washroomId: newTask.washroomId,
+      },
+      afterValues: newTask as unknown as Record<string, unknown>,
+    }
+    dispatch(addActivityLogEntry(logEntry))
+
     setNextTaskId((prev) => prev + 1)
   }
 
   const handleDeleteTask = (task: Task) => {
-    setTasks((prevTasks) => prevTasks.filter((t) => t.id !== task.id))
-    
-    // Clear selected task if it was deleted
+    dispatch(deleteTask(task.id))
+
     if (selectedTask?.id === task.id) {
       setSelectedTask(null)
     }
-    
-    // Remove from title map
-    setCurrentTaskTitleMap((prev) => {
-      const newMap = new Map(prev)
-      newMap.delete(task.id)
-      return newMap
-    })
   }
 
   // Get available task types for the add dialog
-  // Use all task types from CSV
   const availableTaskTypes = useMemo(() => {
     if (allTaskTypes.length > 0) {
       return allTaskTypes
     }
-    // Fallback to common task types if no CSV data loaded yet
     return ['Washroom Checklist', 'Air Freshener Checklist', 'C&W Check-in Counter Checklist', 'Lounge Checklist']
   }, [allTaskTypes])
 

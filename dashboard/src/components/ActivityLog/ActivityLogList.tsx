@@ -143,7 +143,10 @@ function ActivityLogList() {
       case 'config_changed':
         return 'info'
       case 'crew_availability_changed':
-        return 'default'
+      case 'crew_updated':
+        return 'info'
+      case 'washroom_deleted':
+        return 'error'
       default:
         return 'default'
     }
@@ -152,7 +155,11 @@ function ActivityLogList() {
   const getEntityName = (entry: ActivityLogEntry) => {
     if (entry.affectedEntityType === 'washroom') {
       const washroom = washrooms.find((w) => w.id === entry.affectedEntityId)
-      return washroom?.name || entry.affectedEntityId
+      if (washroom) return washroom.name
+      if (entry.actionType === 'washroom_deleted' && entry.details?.deletedWashroom) {
+        return (entry.details.deletedWashroom as any).name || entry.affectedEntityId
+      }
+      return entry.affectedEntityId
     }
     if (entry.affectedEntityType === 'crew') {
       const crewMember = crew.find((c) => c.id === entry.affectedEntityId)

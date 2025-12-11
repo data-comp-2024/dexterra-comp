@@ -59,8 +59,7 @@ export function calculateHeadway(
   const maxReasonableHeadway = 7 * 24 * 60 // 7 days in minutes
   const clampedHeadway = Math.min(headwayMinutes, maxReasonableHeadway)
 
-  const slaMinutes =
-    lastCompleted.sla?.maxHeadwayMinutes || defaultSlaMinutes
+  const slaMinutes = defaultSlaMinutes
 
   return {
     washroomId,
@@ -122,7 +121,7 @@ export function updateTaskState(task: Task): TaskState {
   }
 
   // Check if overdue
-  if (task.slaDeadline && now > task.slaDeadline && task.state !== 'completed') {
+  if (task.slaDeadline && now > task.slaDeadline) {
     return 'overdue'
   }
 

@@ -25,8 +25,11 @@ import {
   Snooze,
 } from '@mui/icons-material'
 import { useState, useMemo } from 'react'
+import { useDispatch } from 'react-redux'
+import { useNavigate } from 'react-router-dom'
 import { useData } from '../../hooks/useData'
 import { Task, EmergencyEvent, TaskPriority } from '../../types'
+import { updateTask, updateEmergencyEvent, addActivityLogEntry } from '../../store/slices/dataSlice'
 import { format } from 'date-fns'
 
 interface DemandItem {
@@ -40,6 +43,8 @@ interface DemandItem {
 }
 
 function IncomingDemandPanel() {
+  const dispatch = useDispatch()
+  const navigate = useNavigate()
   const { tasks, emergencyEvents, washrooms } = useData()
   const [anchorEl, setAnchorEl] = useState<{ [key: string]: HTMLElement | null }>({})
   const [sortBy, setSortBy] = useState<'time' | 'priority' | 'location'>('time')
@@ -113,9 +118,34 @@ function IncomingDemandPanel() {
     handleMenuClose(item.id)
   }
 
-  const handleAcknowledge = (item: DemandItem) => {
-    // TODO: Implement acknowledge logic
-    console.log('Acknowledge', item)
+  const handleResolve = (item: DemandItem) => {
+    if (item.type === 'emergency') {
+      const event = item.data as EmergencyEvent
+      dispatch(updateEmergencyEvent({ ...event, status: 'resolved', resolutionTime: new Date() }))
+      dispatch(addActivityLogEntry({
+        id: `log-${Date.now()}`,
+        timestamp: new Date(),
+        userId: 'current-user',
+        userName: 'Current User',
+        actionType: 'emergency_resolved',
+        affectedEntityType: 'washroom',
+        affectedEntityId: item.washroomId,
+        details: { message: `Resolved emergency at ${item.washroomName}` }
+      }))
+    } else {
+      const task = item.data as Task
+      dispatch(updateTask({ ...task, state: 'completed', completedTime: new Date() }))
+      dispatch(addActivityLogEntry({
+        id: `log-${Date.now()}`,
+        timestamp: new Date(),
+        userId: 'current-user',
+        userName: 'Current User',
+        actionType: 'task_completed',
+        affectedEntityType: 'task',
+        affectedEntityId: task.id,
+        details: { message: `Completed task at ${item.washroomName}` }
+      }))
+    }
     handleMenuClose(item.id)
   }
 
@@ -134,6 +164,14 @@ function IncomingDemandPanel() {
         return 'warning'
       default:
         return 'default'
+    }
+  }
+
+  const handleItemClick = (item: DemandItem) => {
+    if (item.type === 'emergency') {
+      navigate(`/incidents-alerts?search=${item.id}`)
+    } else if (item.type === 'task') {
+      navigate(`/assignments?search=${item.id}`)
     }
   }
 
@@ -183,14 +221,15 @@ function IncomingDemandPanel() {
             demandItems.map((item) => (
               <ListItem
                 key={item.id}
+                button
+                onClick={() => handleItemClick(item)}
                 sx={{
-                  borderLeft: `4px solid ${
-                    item.priority === 'critical' || item.priority === 'emergency'
-                      ? '#D32F2F'
-                      : item.priority === 'high'
+                  borderLeft: `4px solid ${item.priority === 'critical' || item.priority === 'emergency'
+                    ? '#D32F2F'
+                    : item.priority === 'high'
                       ? '#ED6C02'
                       : '#7B2CBF'
-                  }`,
+                    }`,
                   mb: 1,
                   bgcolor: 'action.hover',
                   borderRadius: 1,
@@ -232,7 +271,10 @@ function IncomingDemandPanel() {
                 <ListItemSecondaryAction>
                   <IconButton
                     edge="end"
-                    onClick={(e) => handleMenuOpen(item.id, e)}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      handleMenuOpen(item.id, e)
+                    }}
                   >
                     <MoreVert />
                   </IconButton>
@@ -245,9 +287,9 @@ function IncomingDemandPanel() {
                       <Assignment sx={{ mr: 1 }} fontSize="small" />
                       Assign to crew
                     </MenuItem>
-                    <MenuItem onClick={() => handleAcknowledge(item)}>
+                    <MenuItem onClick={() => handleResolve(item)}>
                       <CheckCircle sx={{ mr: 1 }} fontSize="small" />
-                      Acknowledge
+                      Resolve
                     </MenuItem>
                     {item.type === 'task' && (
                       <MenuItem onClick={() => handleSnooze(item)}>

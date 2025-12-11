@@ -63,7 +63,12 @@ function AvailabilityToggles() {
   }
 
   const onShiftCrew = crew.filter(
-    (c) => c.status === 'on_shift' || c.status === 'available' || c.status === 'busy' || c.status === 'unavailable'
+    (c) =>
+      c.status === 'on_shift' ||
+      c.status === 'available' ||
+      c.status === 'busy' ||
+      c.status === 'on_break' ||
+      c.status === 'unavailable'
   )
 
   return (

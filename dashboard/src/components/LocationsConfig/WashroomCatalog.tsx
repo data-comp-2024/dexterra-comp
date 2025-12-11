@@ -34,10 +34,16 @@ import {
   Search,
 } from '@mui/icons-material'
 import { useState, useMemo, useEffect } from 'react'
+import { useLocation } from 'react-router-dom'
+import { useDispatch } from 'react-redux'
+import { deleteWashroom, addActivityLogEntry } from '../../store/slices/dataSlice'
+import { ActivityLogEntry } from '../../types'
 import { BathroomCatalogItem, loadBathroomCatalog } from '../../services/dataService'
 import WashroomEditDialog from './WashroomEditDialog'
 
 function WashroomCatalog() {
+  const dispatch = useDispatch()
+  const location = useLocation()
   const [bathrooms, setBathrooms] = useState<BathroomCatalogItem[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
@@ -49,6 +55,17 @@ function WashroomCatalog() {
   const [showAddDialog, setShowAddDialog] = useState(false)
   const [deletingBathroom, setDeletingBathroom] = useState<BathroomCatalogItem | null>(null)
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
+
+  // Parse search query
+  const searchParams = new URLSearchParams(location.search)
+  const searchId = searchParams.get('search')
+
+  // Auto-filter by search ID if present
+  useEffect(() => {
+    if (searchId) {
+      setSearchTerm(searchId)
+    }
+  }, [searchId])
 
   useEffect(() => {
     const loadData = async () => {
@@ -147,6 +164,25 @@ function WashroomCatalog() {
   const handleDeleteConfirm = () => {
     if (deletingBathroom) {
       setBathrooms((prev) => prev.filter((b) => b.id !== deletingBathroom.id))
+
+      // Dispatch delete action to Redux store to update Live Ops
+      dispatch(deleteWashroom(deletingBathroom.id))
+
+      // Log activity
+      const logEntry: ActivityLogEntry = {
+        id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+        timestamp: new Date(),
+        userId: 'current-user',
+        userName: 'Current User',
+        actionType: 'washroom_deleted',
+        affectedEntityType: 'washroom',
+        affectedEntityId: deletingBathroom.id,
+        details: { deletedWashroom: deletingBathroom },
+        beforeValues: deletingBathroom as unknown as Record<string, unknown>,
+        afterValues: undefined
+      }
+      dispatch(addActivityLogEntry(logEntry))
+
       setDeletingBathroom(null)
       setShowDeleteDialog(false)
       // TODO: Delete from backend/API

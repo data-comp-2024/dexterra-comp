@@ -34,10 +34,12 @@ import {
   Search,
 } from '@mui/icons-material'
 import { useState, useMemo, useEffect } from 'react'
+import { useLocation } from 'react-router-dom'
 import { GateItem, loadGates } from '../../services/dataService'
 import GateEditDialog from './GateEditDialog'
 
 function GatesCatalog() {
+  const location = useLocation()
   const [gates, setGates] = useState<GateItem[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
@@ -48,6 +50,17 @@ function GatesCatalog() {
   const [showAddDialog, setShowAddDialog] = useState(false)
   const [deletingGate, setDeletingGate] = useState<GateItem | null>(null)
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
+
+  // Parse search query
+  const searchParams = new URLSearchParams(location.search)
+  const searchId = searchParams.get('search')
+
+  // Auto-filter by search ID if present
+  useEffect(() => {
+    if (searchId) {
+      setSearchTerm(searchId)
+    }
+  }, [searchId])
 
   useEffect(() => {
     const loadData = async () => {

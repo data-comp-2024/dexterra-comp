@@ -33,10 +33,12 @@ import {
   Search,
 } from '@mui/icons-material'
 import { useState, useMemo, useEffect } from 'react'
+import { useLocation } from 'react-router-dom'
 import { JanitorClosetItem, loadJanitorClosets } from '../../services/dataService'
 import JanitorClosetEditDialog from './JanitorClosetEditDialog'
 
 function JanitorClosetCatalog() {
+  const location = useLocation()
   const [closets, setClosets] = useState<JanitorClosetItem[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
@@ -47,6 +49,17 @@ function JanitorClosetCatalog() {
   const [showAddDialog, setShowAddDialog] = useState(false)
   const [deletingCloset, setDeletingCloset] = useState<JanitorClosetItem | null>(null)
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
+
+  // Parse search query
+  const searchParams = new URLSearchParams(location.search)
+  const searchId = searchParams.get('search')
+
+  // Auto-filter by search ID if present
+  useEffect(() => {
+    if (searchId) {
+      setSearchTerm(searchId)
+    }
+  }, [searchId])
 
   useEffect(() => {
     const loadData = async () => {

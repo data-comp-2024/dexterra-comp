@@ -1,5 +1,6 @@
 import { Typography, Box, Grid, Tabs, Tab } from '@mui/material'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useLocation } from 'react-router-dom'
 import WashroomCatalog from '../components/LocationsConfig/WashroomCatalog'
 import GatesCatalog from '../components/LocationsConfig/GatesCatalog'
 import JanitorClosetCatalog from '../components/LocationsConfig/JanitorClosetCatalog'
@@ -8,6 +9,22 @@ import RulesThresholds from '../components/LocationsConfig/RulesThresholds'
 
 function LocationsConfig() {
   const [activeTab, setActiveTab] = useState(0)
+  const location = useLocation()
+
+  // Auto-switch tab based on search ID
+  useEffect(() => {
+    const searchParams = new URLSearchParams(location.search)
+    const searchId = searchParams.get('search')
+    if (searchId) {
+      if (searchId.startsWith('F')) {
+        setActiveTab(0) // Washrooms (FE, FF, FG, etc.)
+      } else if (searchId.startsWith('JT')) {
+        setActiveTab(2) // Janitor Closets
+      } else {
+        setActiveTab(1) // Gates (default fallback, usually numeric)
+      }
+    }
+  }, [location.search])
 
   return (
     <Box>

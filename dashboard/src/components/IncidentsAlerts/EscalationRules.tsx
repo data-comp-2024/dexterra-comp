@@ -324,6 +324,8 @@ function EscalationRules() {
                       </Typography>
                     </Box>
                   }
+                  secondaryTypographyProps={{ component: 'div' }}
+                  primaryTypographyProps={{ component: 'div' }}
                 />
                 <Box sx={{ display: 'flex', gap: 1 }}>
                   <Tooltip title="Edit rule">
