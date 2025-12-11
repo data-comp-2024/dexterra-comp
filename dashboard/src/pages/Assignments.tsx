@@ -17,15 +17,18 @@ import AssignTaskDialog from '../components/Assignments/AssignTaskDialog'
 import CancelTaskDialog from '../components/Assignments/CancelTaskDialog'
 import AddTaskDialog from '../components/Assignments/AddTaskDialog'
 import { useData } from '../hooks/useData'
+import { useOptimization } from '../context/OptimizationContext'
 import { Task } from '../types'
 import { loadHistoricalTasks, getAvailableHistoricalDates, loadTasks } from '../services/dataService'
 import { format, parseISO } from 'date-fns'
 import Papa from 'papaparse'
+import { CURRENT_DATE } from '../constants'
 
 function Assignments() {
   // Note: Assignments page does NOT use auto-refresh to prevent random data changes
   // Data is loaded once on mount and only refreshes manually
   const { crew, washrooms } = useData()
+  const { optimizedTasks, hasOptimizedTasks } = useOptimization()
   const [tasks, setTasks] = useState<Task[]>([])
   const [currentTaskTitleMap, setCurrentTaskTitleMap] = useState<Map<string, string>>(new Map())
   const [selectedTask, setSelectedTask] = useState<Task | null>(null)
@@ -48,18 +51,39 @@ function Assignments() {
   const [loadingHistorical, setLoadingHistorical] = useState(false)
   const [allTaskTypes, setAllTaskTypes] = useState<string[]>([])
 
-  // Load current tasks on mount
+  // Load current tasks on mount - filter out normal tasks for Dec 31, 2024
   useEffect(() => {
     const loadCurrentTasks = async () => {
       try {
         const washroomIds = washrooms.map((w) => w.id)
         const crewIds = crew.map((c) => c.id)
         const { tasks: loadedTasks, taskTitleMap } = await loadTasks(washroomIds, crewIds)
-        setTasks(loadedTasks)
+        
+        // Filter out normal (non-emergency) tasks for Dec 31, 2024
+        const todayStart = new Date(CURRENT_DATE)
+        todayStart.setHours(0, 0, 0, 0)
+        const todayEnd = new Date(todayStart)
+        todayEnd.setDate(todayEnd.getDate() + 1)
+        
+        const filteredTasks = loadedTasks.filter((t) => {
+          // If task is from today (Dec 31, 2024), only keep emergency tasks
+          if (t.createdTime >= todayStart && t.createdTime < todayEnd) {
+            return t.priority === 'emergency' || t.type === 'emergency_cleaning'
+          }
+          // Keep all tasks from other days
+          return true
+        })
+        
+        // If we have optimized tasks, use those instead of normal tasks
+        const tasksToShow = hasOptimizedTasks
+          ? [...filteredTasks, ...optimizedTasks] // Show emergency tasks + optimized tasks
+          : filteredTasks // Only show emergency tasks if no optimization
+        
+        setTasks(tasksToShow)
         setCurrentTaskTitleMap(taskTitleMap)
         
         // Find the highest task ID to generate new ones
-        const maxId = loadedTasks.reduce((max, task) => {
+        const maxId = tasksToShow.reduce((max, task) => {
           const numId = parseInt(task.id.replace(/\D/g, ''), 10)
           return isNaN(numId) ? max : Math.max(max, numId)
         }, 0)
@@ -72,7 +96,7 @@ function Assignments() {
     if (washrooms.length > 0 && crew.length > 0) {
       loadCurrentTasks()
     }
-  }, [washrooms.length, crew.length])
+  }, [washrooms.length, crew.length, hasOptimizedTasks, optimizedTasks])
 
   // Load available dates and task types on mount
   useEffect(() => {

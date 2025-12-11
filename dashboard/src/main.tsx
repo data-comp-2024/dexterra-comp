@@ -7,6 +7,7 @@ import { store } from './store'
 import ErrorBoundary from './components/ErrorBoundary'
 import { WebSocketProvider } from './components/WebSocketProvider'
 import ThemeProvider from './components/ThemeProvider'
+import { OptimizationProvider } from './context/OptimizationContext'
 import './index.css'
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
@@ -16,7 +17,9 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
         <ThemeProvider>
           <BrowserRouter>
             <WebSocketProvider>
-              <App />
+              <OptimizationProvider>
+                <App />
+              </OptimizationProvider>
             </WebSocketProvider>
           </BrowserRouter>
         </ThemeProvider>

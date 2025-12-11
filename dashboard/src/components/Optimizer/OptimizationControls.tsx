@@ -9,85 +9,83 @@ import {
   Typography,
   Button,
   TextField,
-  Slider,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
   CircularProgress,
   Alert,
   Tooltip,
+  Chip,
 } from '@mui/material'
-import { PlayArrow, Save, Settings } from '@mui/icons-material'
-import { useState } from 'react'
+import { PlayArrow, Settings, People } from '@mui/icons-material'
+import { useState, useEffect } from 'react'
+import { useData } from '../../hooks/useData'
+import { CURRENT_DATE } from '../../constants'
 
 export interface OptimizationParameters {
-  timeWindowHours: number
-  minimizeWalkingDistance: number // 0-100
-  minimizeEmergencyResponse: number // 0-100
-  maximizeHeadwaySLA: number // 0-100
-  preset?: string
+  cleaningFrequencyHours: number // How often to clean (e.g., every 2 hours)
 }
 
 interface OptimizationControlsProps {
   onRunOptimization: (params: OptimizationParameters) => Promise<void>
   isRunning: boolean
+  autoRun?: boolean // If true, auto-run when frequency changes
 }
 
-const PRESETS = {
-  peak: {
-    name: 'Peak Mode',
-    minimizeWalkingDistance: 30,
-    minimizeEmergencyResponse: 50,
-    maximizeHeadwaySLA: 70,
-  },
-  overnight: {
-    name: 'Overnight Mode',
-    minimizeWalkingDistance: 70,
-    minimizeEmergencyResponse: 30,
-    maximizeHeadwaySLA: 50,
-  },
-  balanced: {
-    name: 'Balanced',
-    minimizeWalkingDistance: 50,
-    minimizeEmergencyResponse: 50,
-    maximizeHeadwaySLA: 50,
-  },
-}
-
-function OptimizationControls({ onRunOptimization, isRunning }: OptimizationControlsProps) {
-  const [timeWindowHours, setTimeWindowHours] = useState(2)
-  const [minimizeWalkingDistance, setMinimizeWalkingDistance] = useState(50)
-  const [minimizeEmergencyResponse, setMinimizeEmergencyResponse] = useState(50)
-  const [maximizeHeadwaySLA, setMaximizeHeadwaySLA] = useState(50)
-  const [preset, setPreset] = useState<string>('balanced')
+function OptimizationControls({ onRunOptimization, isRunning, autoRun = false }: OptimizationControlsProps) {
+  const { crew } = useData()
+  const [cleaningFrequencyHours, setCleaningFrequencyHours] = useState(2)
   const [error, setError] = useState<string | null>(null)
+  const [hasRunOnce, setHasRunOnce] = useState(false)
 
-  const handlePresetChange = (newPreset: string) => {
-    setPreset(newPreset)
-    if (newPreset !== 'custom' && PRESETS[newPreset as keyof typeof PRESETS]) {
-      const presetValues = PRESETS[newPreset as keyof typeof PRESETS]
-      setMinimizeWalkingDistance(presetValues.minimizeWalkingDistance)
-      setMinimizeEmergencyResponse(presetValues.minimizeEmergencyResponse)
-      setMaximizeHeadwaySLA(presetValues.maximizeHeadwaySLA)
-    }
-  }
+  // Calculate active crew for Dec 31, 2024 (shifts that overlap with the day)
+  const dayStart = new Date(CURRENT_DATE)
+  dayStart.setHours(0, 0, 0, 0)
+  const dayEnd = new Date(CURRENT_DATE)
+  dayEnd.setHours(23, 59, 59, 999)
+  
+  const activeCrewCount = crew.filter((c) => {
+    const shiftStart = c.shift.startTime
+    const shiftEnd = c.shift.endTime
+    
+    // Check if shift overlaps with Dec 31, 2024
+    const shiftStartDate = new Date(shiftStart)
+    shiftStartDate.setHours(0, 0, 0, 0)
+    const shiftEndDate = new Date(shiftEnd)
+    shiftEndDate.setHours(23, 59, 59, 999)
+    
+    const overlaps = shiftStartDate <= dayEnd && shiftEndDate >= dayStart
+    return overlaps && c.status !== 'off_shift'
+  }).length
 
   const handleRun = async () => {
     setError(null)
     try {
       const params: OptimizationParameters = {
-        timeWindowHours,
-        minimizeWalkingDistance,
-        minimizeEmergencyResponse,
-        maximizeHeadwaySLA,
-        preset: preset !== 'custom' ? preset : undefined,
+        cleaningFrequencyHours,
       }
       await onRunOptimization(params)
+      setHasRunOnce(true)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to run optimization')
     }
   }
+
+  // Auto-run when cleaning frequency changes (if autoRun is enabled and we've run at least once)
+  useEffect(() => {
+    if (autoRun && hasRunOnce && !isRunning && cleaningFrequencyHours > 0) {
+      const timeoutId = setTimeout(async () => {
+        setError(null)
+        try {
+          const params: OptimizationParameters = {
+            cleaningFrequencyHours,
+          }
+          await onRunOptimization(params)
+        } catch (err) {
+          setError(err instanceof Error ? err.message : 'Failed to run optimization')
+        }
+      }, 800) // Debounce 800ms
+      return () => clearTimeout(timeoutId)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cleaningFrequencyHours])
 
   return (
     <Card>
@@ -106,110 +104,46 @@ function OptimizationControls({ onRunOptimization, isRunning }: OptimizationCont
         )}
 
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-          {/* Time Window */}
+          {/* Active Crew Info */}
+          <Box sx={{ p: 2, bgcolor: 'background.default', borderRadius: 1 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+              <People color="primary" />
+              <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                Active Crew Members
+              </Typography>
+            </Box>
+            <Chip
+              label={`${activeCrewCount} crew members active on Dec 31, 2024`}
+              color="primary"
+              size="small"
+            />
+            <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+              Optimization will use all active crew members based on their shifts
+            </Typography>
+          </Box>
+
+          {/* Cleaning Frequency */}
           <Box>
-            <Tooltip title="Select how many hours into the future to optimize assignments">
+            <Tooltip title="How often bathrooms should be cleaned (e.g., every 2 hours)">
               <Typography variant="subtitle2" sx={{ mb: 1 }}>
-                Time Window
+                Cleaning Frequency (hours)
               </Typography>
             </Tooltip>
             <TextField
               type="number"
-              value={timeWindowHours}
-              onChange={(e) => setTimeWindowHours(Number(e.target.value))}
-              inputProps={{ min: 1, max: 12 }}
+              value={cleaningFrequencyHours}
+              onChange={(e) => setCleaningFrequencyHours(Number(e.target.value))}
+              inputProps={{ min: 0.5, max: 6, step: 0.5 }}
               size="small"
               sx={{ width: 150 }}
-              helperText="Hours ahead to optimize"
-              aria-label="Time window in hours"
+              helperText="Hours between cleanings"
+              aria-label="Cleaning frequency in hours"
             />
           </Box>
 
-          {/* Preset Selection */}
-          <Tooltip title="Choose a preset optimization strategy or customize weights manually">
-            <FormControl size="small" sx={{ minWidth: 200 }}>
-              <InputLabel>Optimization Preset</InputLabel>
-              <Select
-                value={preset}
-                onChange={(e) => handlePresetChange(e.target.value)}
-                label="Optimization Preset"
-                aria-label="Select optimization preset"
-              >
-              <MenuItem value="balanced">{PRESETS.balanced.name}</MenuItem>
-              <MenuItem value="peak">{PRESETS.peak.name}</MenuItem>
-              <MenuItem value="overnight">{PRESETS.overnight.name}</MenuItem>
-              <MenuItem value="custom">Custom</MenuItem>
-            </Select>
-          </FormControl>
-          </Tooltip>
-
-          {/* Parameter Sliders */}
-          <Box>
-            <Typography variant="subtitle2" sx={{ mb: 2 }}>
-              Optimization Weights
-            </Typography>
-
-            <Tooltip title="Weight for minimizing crew walking distance between tasks">
-              <Box sx={{ mb: 3 }}>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                  <Typography variant="body2">Minimize Walking Distance</Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    {minimizeWalkingDistance}
-                  </Typography>
-                </Box>
-                <Slider
-                  value={minimizeWalkingDistance}
-                  onChange={(_, value) => setMinimizeWalkingDistance(value as number)}
-                  min={0}
-                  max={100}
-                  disabled={preset !== 'custom'}
-                  aria-label="Minimize walking distance weight"
-                />
-              </Box>
-            </Tooltip>
-
-            <Tooltip title="Weight for minimizing emergency response time">
-              <Box sx={{ mb: 3 }}>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                  <Typography variant="body2">Minimize Emergency Response Time</Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    {minimizeEmergencyResponse}
-                  </Typography>
-                </Box>
-                <Slider
-                  value={minimizeEmergencyResponse}
-                  onChange={(_, value) => setMinimizeEmergencyResponse(value as number)}
-                  min={0}
-                  max={100}
-                  disabled={preset !== 'custom'}
-                  aria-label="Minimize emergency response time weight"
-                />
-              </Box>
-            </Tooltip>
-
-            <Tooltip title="Weight for maximizing adherence to headway SLA requirements">
-              <Box sx={{ mb: 3 }}>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                  <Typography variant="body2">Maximize Headway SLA Adherence</Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    {maximizeHeadwaySLA}
-                  </Typography>
-                </Box>
-                <Slider
-                  value={maximizeHeadwaySLA}
-                  onChange={(_, value) => setMaximizeHeadwaySLA(value as number)}
-                  min={0}
-                  max={100}
-                  disabled={preset !== 'custom'}
-                  aria-label="Maximize headway SLA adherence weight"
-                />
-              </Box>
-            </Tooltip>
-          </Box>
-
-          {/* Action Buttons */}
+          {/* Action Button */}
           <Box sx={{ display: 'flex', gap: 2 }}>
-            <Tooltip title="Run optimization with current parameters">
+            <Tooltip title="Run optimization for Dec 31, 2024 using active crew members">
               <span>
                 <Button
                   variant="contained"
@@ -223,17 +157,6 @@ function OptimizationControls({ onRunOptimization, isRunning }: OptimizationCont
                 </Button>
               </span>
             </Tooltip>
-            <Button
-              variant="outlined"
-              startIcon={<Save />}
-              disabled={preset === 'custom' || isRunning}
-              onClick={() => {
-                // TODO: Save preset functionality
-                console.log('Save preset')
-              }}
-            >
-              Save Preset
-            </Button>
           </Box>
         </Box>
       </CardContent>
