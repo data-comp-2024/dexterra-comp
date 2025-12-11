@@ -489,8 +489,8 @@ function TaskList({
             )}
         </Box>
 
-        <TableContainer sx={{ maxHeight: 600 }}>
-          <Table stickyHeader>
+        <TableContainer sx={{ maxHeight: 600, overflowX: 'auto' }}>
+          <Table stickyHeader sx={{ minWidth: 1200 }}>
             <TableHead>
               <TableRow>
                 <TableCell>Task ID</TableCell>

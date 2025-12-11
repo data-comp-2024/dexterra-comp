@@ -19,9 +19,9 @@ import CancelTaskDialog from '../components/Assignments/CancelTaskDialog'
 import AddTaskDialog from '../components/Assignments/AddTaskDialog'
 import { useData } from '../hooks/useData'
 import { useOptimization } from '../context/OptimizationContext'
-import { Task } from '../types'
+import { Task, ActivityLogEntry } from '../types'
 import { loadHistoricalTasks, getAvailableHistoricalDates } from '../services/dataService'
-import { updateTask, deleteTask } from '../store/slices/dataSlice'
+import { updateTask, deleteTask, addActivityLogEntry } from '../store/slices/dataSlice'
 import { format, parseISO } from 'date-fns'
 import Papa from 'papaparse'
 import { CURRENT_DATE } from '../constants'
@@ -262,6 +262,24 @@ function Assignments() {
     }
 
     dispatch(updateTask(newTask))
+
+    // Add activity log entry
+    const logEntry: ActivityLogEntry = {
+      id: `log-${Date.now()}`,
+      timestamp: new Date(),
+      userId: 'current-user', // Mock user ID
+      userName: 'Dispatcher', // Mock user name
+      actionType: 'task_created',
+      affectedEntityType: 'task',
+      affectedEntityId: newTaskId,
+      details: {
+        taskType: newTask.type,
+        priority: newTask.priority,
+        washroomId: newTask.washroomId,
+      },
+      afterValues: newTask as unknown as Record<string, unknown>,
+    }
+    dispatch(addActivityLogEntry(logEntry))
 
     setNextTaskId((prev) => prev + 1)
   }

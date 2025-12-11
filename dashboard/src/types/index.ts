@@ -160,6 +160,7 @@ export interface ActivityLogEntry {
   userId: string
   userName: string
   actionType:
+    | 'task_created'
     | 'task_assigned'
     | 'task_reassigned'
     | 'task_cancelled'
