@@ -66,9 +66,8 @@ function NotificationsMenu({ anchorEl, onClose, badgeCount }: NotificationsMenuP
   }
 
   const handleNotificationClick = (notification: Notification) => {
-    console.log('Notification clicked:', notification.id)
-    // In production, mark as read and navigate to relevant page
     onClose()
+    navigate(`/incidents-alerts?search=${notification.id}`)
   }
 
   const handleViewAll = () => {

@@ -5,6 +5,7 @@ import {
     Paper,
     List,
     ListItem,
+    ListItemButton,
     ListItemText,
     ListItemIcon,
     Chip,
@@ -20,6 +21,7 @@ import {
     Error as ErrorIcon,
 } from '@mui/icons-material'
 import { formatDistanceToNow } from 'date-fns'
+import { useNavigate } from 'react-router-dom'
 import { Notification } from '../types'
 import { fetchNotificationsList } from '../services'
 
@@ -27,6 +29,7 @@ function Notifications() {
     const [notifications, setNotifications] = useState<Notification[]>([])
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState<string | null>(null)
+    const navigate = useNavigate()
 
     useEffect(() => {
         const fetchNotifications = async () => {
@@ -94,35 +97,40 @@ function Notifications() {
                     <List>
                         {notifications.map((notification, index) => (
                             <div key={notification.id}>
-                                <ListItem alignItems="flex-start">
-                                    <ListItemIcon>{getIcon(notification.type)}</ListItemIcon>
-                                    <ListItemText
-                                        primary={
-                                            <Box display="flex" justifyContent="space-between" alignItems="center">
-                                                <Typography variant="subtitle1" component="span">
-                                                    {notification.title}
-                                                </Typography>
-                                                <Box display="flex" alignItems="center" gap={1}>
-                                                    {!notification.read && (
-                                                        <Chip label="New" color="primary" size="small" variant="outlined" />
-                                                    )}
-                                                    <Typography variant="caption" color="textSecondary">
-                                                        {formatDistanceToNow(notification.timestamp, { addSuffix: true })}
+                                <ListItem disablePadding>
+                                    <ListItemButton
+                                        alignItems="flex-start"
+                                        onClick={() => navigate(`/incidents-alerts?search=${notification.id}`)}
+                                    >
+                                        <ListItemIcon>{getIcon(notification.type)}</ListItemIcon>
+                                        <ListItemText
+                                            primary={
+                                                <Box display="flex" justifyContent="space-between" alignItems="center">
+                                                    <Typography variant="subtitle1" component="span">
+                                                        {notification.title}
                                                     </Typography>
+                                                    <Box display="flex" alignItems="center" gap={1}>
+                                                        {!notification.read && (
+                                                            <Chip label="New" color="primary" size="small" variant="outlined" />
+                                                        )}
+                                                        <Typography variant="caption" color="textSecondary">
+                                                            {formatDistanceToNow(notification.timestamp, { addSuffix: true })}
+                                                        </Typography>
+                                                    </Box>
                                                 </Box>
-                                            </Box>
-                                        }
-                                        secondary={
-                                            <Typography
-                                                component="span"
-                                                variant="body2"
-                                                color="text.primary"
-                                                sx={{ display: 'block', mt: 0.5 }}
-                                            >
-                                                {notification.message}
-                                            </Typography>
-                                        }
-                                    />
+                                            }
+                                            secondary={
+                                                <Typography
+                                                    component="span"
+                                                    variant="body2"
+                                                    color="text.primary"
+                                                    sx={{ display: 'block', mt: 0.5 }}
+                                                >
+                                                    {notification.message}
+                                                </Typography>
+                                            }
+                                        />
+                                    </ListItemButton>
                                 </ListItem>
                                 {index < notifications.length - 1 && <Divider variant="inset" component="li" />}
                             </div>

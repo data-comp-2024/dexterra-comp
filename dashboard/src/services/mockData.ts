@@ -636,7 +636,7 @@ export function generateMockActivityLog(count: number = 100): ActivityLogEntry[]
 export function generateMockNotifications(): Notification[] {
   return [
     {
-      id: '1',
+      id: 'emergency-1',
       type: 'error',
       title: 'Emergency Alert',
       message: 'Emergency detected at T1-134-MEN',
