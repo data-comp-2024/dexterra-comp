@@ -1616,6 +1616,120 @@ export async function loadJanitorClosets(): Promise<JanitorClosetItem[]> {
 /**
  * Load notifications
  */
+export interface AuditRecord {
+  auditId: string
+  title: string
+  targetScore: number
+  totalScore: number
+  name: string
+  bathroom: string
+  dt: Date
+}
+
+export async function loadAuditData(): Promise<AuditRecord[]> {
+  try {
+    const possiblePaths = [
+      '/Audit 2024lighthouse_audits_combined.csv',
+      'data/Audit 2024lighthouse_audits_combined.csv',
+      '/data/Audit 2024lighthouse_audits_combined.csv',
+      './data/Audit 2024lighthouse_audits_combined.csv',
+      '../data/Audit 2024lighthouse_audits_combined.csv',
+      `${DATA_ROOT}/Audit 2024lighthouse_audits_combined.csv`,
+    ]
+
+    let text: string | null = null
+    for (const csvPath of possiblePaths) {
+      try {
+        const response = await fetch(csvPath)
+        if (response.ok) {
+          text = await response.text()
+          console.log(`Loaded audit data from ${csvPath}`)
+          break
+        }
+      } catch (error) {
+        continue
+      }
+    }
+
+    if (!text) {
+      console.warn('Audit CSV not found in any location')
+      return []
+    }
+
+    return await parseAuditCSV(text)
+  } catch (error) {
+    console.warn('Failed to load audit data:', error)
+    return []
+  }
+}
+
+function parseAuditCSV(text: string): AuditRecord[] {
+  return new Promise((resolve) => {
+    Papa.parse(text, {
+      header: true,
+      delimiter: ',',
+      skipEmptyLines: true,
+      transformHeader: (header) => header.trim(),
+      complete: (results) => {
+        if (results.errors.length > 0) {
+          console.warn('Audit CSV parsing warnings:', results.errors.slice(0, 5))
+        }
+
+        if (!results.data || results.data.length === 0) {
+          console.warn('No audit data in CSV')
+          resolve([])
+          return
+        }
+
+        const audits: AuditRecord[] = []
+        
+        results.data.forEach((row: any) => {
+          try {
+            const auditId = String(row['Audit ID'] || '').trim()
+            const title = String(row['Title'] || '').trim()
+            const targetScoreStr = String(row['Target Score (%)'] || '').trim()
+            const totalScoreStr = String(row['Total Score (%)'] || '').trim()
+            const name = String(row['Name'] || '').trim()
+            const bathroom = String(row['Bathroom'] || '').trim()
+            const dtStr = String(row['dt'] || '').trim()
+
+            if (!auditId || !dtStr) {
+              return
+            }
+
+            // Parse date/time
+            let dt: Date
+            try {
+              dt = new Date(dtStr)
+              if (isNaN(dt.getTime())) return
+            } catch {
+              return
+            }
+
+            // Parse scores
+            const targetScore = parseFloat(targetScoreStr) || 0
+            const totalScore = parseFloat(totalScoreStr) || 0
+
+            audits.push({
+              auditId,
+              title,
+              targetScore,
+              totalScore,
+              name,
+              bathroom,
+              dt,
+            })
+          } catch (error) {
+            console.warn('Error parsing audit row:', error)
+          }
+        })
+
+        resolve(audits)
+      },
+    })
+  })
+}
+
 export async function loadNotifications(): Promise<Notification[]> {
   // For now, just return mock notifications
   return generateMockNotifications()

@@ -3,9 +3,9 @@ import { Download } from '@mui/icons-material'
 import { useState } from 'react'
 import TimeRangeSelector, { TimeRange } from '../components/PerformanceSLAs/TimeRangeSelector'
 import ServiceQualityKPIs from '../components/PerformanceSLAs/ServiceQualityKPIs'
-import ResponseHeadwayKPIs from '../components/PerformanceSLAs/ResponseHeadwayKPIs'
-import CrewProductivityKPIs from '../components/PerformanceSLAs/CrewProductivityKPIs'
 import PerformanceFilters, { PerformanceFilters as FiltersType } from '../components/PerformanceSLAs/PerformanceFilters'
+import AuditAggregations from '../components/PerformanceSLAs/AuditAggregations'
+import AuditDetails from '../components/PerformanceSLAs/AuditDetails'
 
 function PerformanceSLAs() {
   // Default to 2024 timeline (Jan 1, 2024 to Dec 31, 2024)
@@ -78,14 +78,14 @@ function PerformanceSLAs() {
           <ServiceQualityKPIs timeRange={timeRange} />
         </Grid>
 
-        {/* Response & Headway KPIs */}
+        {/* Audit Aggregations */}
         <Grid item xs={12}>
-          <ResponseHeadwayKPIs timeRange={timeRange} />
+          <AuditAggregations timeRange={timeRange} />
         </Grid>
 
-        {/* Crew Productivity KPIs */}
+        {/* Audit Details */}
         <Grid item xs={12}>
-          <CrewProductivityKPIs timeRange={timeRange} />
+          <AuditDetails timeRange={timeRange} />
         </Grid>
       </Grid>
     </Box>
