@@ -8,6 +8,7 @@ interface CrewContextType {
     crew: Crew[]
     updateCrewStatus: (crewId: string, status: CrewStatus, reason?: string) => void
     updateCrewShift: (crewId: string, startTime: Date, endTime: Date) => void
+    updateCrewDetails: (crewId: string, updates: Partial<Crew>) => void
     loading: boolean
 }
 
@@ -39,8 +40,16 @@ export function CrewProvider({ children }: { children: ReactNode }) {
         }
     }
 
+    const updateCrewDetails = (crewId: string, updates: Partial<Crew>) => {
+        const member = crew.find(c => c.id === crewId)
+        if (member) {
+            dispatch(updateCrew({ ...member, ...updates }))
+            console.log(`Updated crew ${crewId} details`, updates)
+        }
+    }
+
     return (
-        <CrewContext.Provider value={{ crew, updateCrewStatus, updateCrewShift, loading }}>
+        <CrewContext.Provider value={{ crew, updateCrewStatus, updateCrewShift, updateCrewDetails, loading }}>
             {children}
         </CrewContext.Provider>
     )

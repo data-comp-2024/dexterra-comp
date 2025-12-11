@@ -35,7 +35,7 @@ import { CURRENT_DATE } from '../../constants'
 import EditShiftDialog from './EditShiftDialog'
 
 function RosterView() {
-  const { crew, updateCrewStatus, updateCrewShift } = useCrew()
+  const { crew, updateCrewStatus, updateCrewDetails } = useCrew()
   const { optimizationResult } = useOptimization()
   const [anchorEl, setAnchorEl] = useState<{ [key: string]: HTMLElement | null }>({})
   const [editDialogOpen, setEditDialogOpen] = useState(false)
@@ -85,8 +85,10 @@ function RosterView() {
   }
 
   const handleSaveShift = (crewId: string, startTime: Date, endTime: Date, status: CrewStatus) => {
-    updateCrewShift(crewId, startTime, endTime)
-    updateCrewStatus(crewId, status)
+    updateCrewDetails(crewId, {
+      shift: { startTime, endTime },
+      status,
+    })
   }
 
   const getStatusColor = (status: CrewStatus) => {
