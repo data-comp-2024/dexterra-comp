@@ -22,7 +22,9 @@ import {
   ToggleButton,
   ToggleButtonGroup,
 } from '@mui/material'
+import { LocationOn } from '@mui/icons-material'
 import { useState, useMemo } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useData } from '../../hooks/useData'
 import {
   calculateHeadway,
@@ -41,6 +43,7 @@ interface WashroomStatus {
 }
 
 function AirportMap() {
+  const navigate = useNavigate()
   const { washrooms, tasks, emergencyEvents, happyScores } = useData()
   const [selectedWashroom, setSelectedWashroom] = useState<string | null>(null)
   const [filterMode, setFilterMode] = useState<'priority' | 'all'>('priority')
@@ -382,10 +385,10 @@ function AirportMap() {
                     selectedStatus.status === 'clean'
                       ? 'success'
                       : selectedStatus.status === 'emergency'
-                      ? 'error'
-                      : selectedStatus.status === 'overdue'
-                      ? 'warning'
-                      : 'default'
+                        ? 'error'
+                        : selectedStatus.status === 'overdue'
+                          ? 'warning'
+                          : 'default'
                   }
                 />
               </Box>
@@ -458,6 +461,14 @@ function AirportMap() {
               </Grid>
             </DialogContent>
             <DialogActions>
+              <Button
+                startIcon={<LocationOn />}
+                onClick={() => {
+                  navigate(`/locations-config?search=${selectedWashroom}`)
+                }}
+              >
+                Open Location
+              </Button>
               <Button onClick={() => setSelectedWashroom(null)}>Close</Button>
             </DialogActions>
           </>

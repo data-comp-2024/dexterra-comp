@@ -34,6 +34,7 @@ import {
   Search,
 } from '@mui/icons-material'
 import { useState, useMemo, useEffect } from 'react'
+import { useLocation } from 'react-router-dom'
 import { useDispatch } from 'react-redux'
 import { deleteWashroom, addActivityLogEntry } from '../../store/slices/dataSlice'
 import { ActivityLogEntry } from '../../types'
@@ -42,6 +43,7 @@ import WashroomEditDialog from './WashroomEditDialog'
 
 function WashroomCatalog() {
   const dispatch = useDispatch()
+  const location = useLocation()
   const [bathrooms, setBathrooms] = useState<BathroomCatalogItem[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
@@ -53,6 +55,17 @@ function WashroomCatalog() {
   const [showAddDialog, setShowAddDialog] = useState(false)
   const [deletingBathroom, setDeletingBathroom] = useState<BathroomCatalogItem | null>(null)
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
+
+  // Parse search query
+  const searchParams = new URLSearchParams(location.search)
+  const searchId = searchParams.get('search')
+
+  // Auto-filter by search ID if present
+  useEffect(() => {
+    if (searchId) {
+      setSearchTerm(searchId)
+    }
+  }, [searchId])
 
   useEffect(() => {
     const loadData = async () => {
