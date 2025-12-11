@@ -1,5 +1,5 @@
 import { Typography, Box, Grid, Button, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, Snackbar, Alert } from '@mui/material'
-import { CheckCircle, Cancel } from '@mui/icons-material'
+import { CheckCircle, Cancel, DeleteOutline } from '@mui/icons-material'
 import { useState, useMemo } from 'react'
 import { useData } from '../hooks/useData'
 import OptimizationControls, { OptimizationParameters } from '../components/Optimizer/OptimizationControls'
@@ -27,12 +27,13 @@ interface ProposedAssignment {
 
 function Optimizer() {
   const { tasks, crew, washrooms, flights } = useData()
-  const { setOptimizedTasks, setOptimizationResult, optimizationResult } = useOptimization()
+  const { setOptimizedTasks, setOptimizationResult, optimizationResult, hasOptimizedTasks, clearOptimizedTasks } = useOptimization()
   const [isRunning, setIsRunning] = useState(false)
   const [proposedAssignments, setProposedAssignments] = useState<ProposedAssignment[]>([])
   const [selectedTaskIds, setSelectedTaskIds] = useState<Set<string>>(new Set())
   const [showApplyDialog, setShowApplyDialog] = useState(false)
   const [showCancelDialog, setShowCancelDialog] = useState(false)
+  const [showClearDialog, setShowClearDialog] = useState(false)
   const [happyScores, setHappyScores] = useState<Map<string, number>>(new Map())
   const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: 'success' | 'error' }>({
     open: false,
@@ -215,6 +216,23 @@ function Optimizer() {
     })
   }
 
+  const handleClearApplied = () => {
+    setShowClearDialog(true)
+  }
+
+  const handleConfirmClear = () => {
+    clearOptimizedTasks()
+    setProposedAssignments([])
+    setSelectedTaskIds(new Set())
+    setHappyScores(new Map())
+    setShowClearDialog(false)
+    setSnackbar({
+      open: true,
+      message: 'Applied optimization plan cleared. You can now run a new optimization.',
+      severity: 'success',
+    })
+  }
+
 
   return (
     <Box>
@@ -386,6 +404,24 @@ function Optimizer() {
                 </Button>
               </Box>
             )}
+
+            {/* Clear Applied Optimization Button */}
+            {hasOptimizedTasks && (
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, mt: 2 }}>
+                <Button
+                  variant="outlined"
+                  startIcon={<DeleteOutline />}
+                  onClick={handleClearApplied}
+                  fullWidth
+                  color="error"
+                >
+                  Clear Applied Optimization
+                </Button>
+                <Typography variant="caption" color="text.secondary" sx={{ textAlign: 'center' }}>
+                  Remove all applied assignments to run a new optimization
+                </Typography>
+              </Box>
+            )}
           </Box>
         </Grid>
 
@@ -407,14 +443,43 @@ function Optimizer() {
         <DialogTitle>Apply Optimization Plan?</DialogTitle>
         <DialogContent>
           <DialogContentText>
-            This will apply {proposedAssignments.length} proposed assignment(s) to the current plan.
-            This action cannot be undone.
+            This will apply {proposedAssignments.filter((a) => selectedTaskIds.has(a.taskId)).length} proposed assignment(s) to the current plan.
+            {hasOptimizedTasks && (
+              <>
+                <br />
+                <br />
+                <strong>Note:</strong> This will replace any previously applied optimization plan. You can clear applied plans at any time using the "Clear Applied Optimization" button.
+              </>
+            )}
           </DialogContentText>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setShowApplyDialog(false)}>Cancel</Button>
           <Button onClick={handleConfirmApply} variant="contained" autoFocus>
             Apply
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Clear Applied Optimization Dialog */}
+      <Dialog open={showClearDialog} onClose={() => setShowClearDialog(false)}>
+        <DialogTitle>Clear Applied Optimization Plan?</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            This will remove all applied optimization assignments. The tasks will be unassigned and you can run a new optimization.
+            {optimizationResult && (
+              <>
+                <br />
+                <br />
+                This will clear {optimizationResult.assignments.length} assignment(s).
+              </>
+            )}
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setShowClearDialog(false)}>Cancel</Button>
+          <Button onClick={handleConfirmClear} variant="contained" color="error" autoFocus>
+            Clear
           </Button>
         </DialogActions>
       </Dialog>

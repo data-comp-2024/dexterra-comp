@@ -12,15 +12,17 @@ import {
 } from '@mui/icons-material'
 import { useMemo } from 'react'
 import { useData } from '../../hooks/useData'
+import { useOptimization } from '../../context/OptimizationContext'
 import {
   calculateAverageHappyScore,
   calculateHeadway,
 } from '../../services/dataTransform'
+import { predictHappyScoresFromSchedule } from '../../services/happyScorePrediction'
 import { HAPPY_SCORE_THRESHOLD, CURRENT_DATE } from '../../constants'
 
 interface KPICardProps {
   title: string
-  value: string | number
+  value: string | number | null
   icon: React.ReactNode
   color?: 'primary' | 'success' | 'error' | 'warning'
   subtitle?: string
@@ -59,9 +61,9 @@ function KPICard({ title, value, icon, color = 'primary', subtitle }: KPICardPro
           <Typography
             variant="h4"
             sx={{ fontWeight: 600, mb: subtitle ? 0.5 : 0 }}
-            aria-label={`${title} value is ${value}`}
+            aria-label={`${title} value is ${value ?? 'not available'}`}
           >
-            {value}
+            {value ?? '—'}
           </Typography>
           {subtitle && (
             <Typography variant="caption" color="text.secondary">
@@ -76,9 +78,72 @@ function KPICard({ title, value, icon, color = 'primary', subtitle }: KPICardPro
 
 function MiniKPIPanel() {
   const { washrooms, tasks, emergencyEvents, happyScores } = useData()
+  const { optimizationResult } = useOptimization()
 
   const kpis = useMemo(() => {
-    // Use current date constant (Dec 31, 2024)
+    // If optimization results exist, use them; otherwise use fallback calculations
+    if (optimizationResult && optimizationResult.metrics) {
+      const metrics = optimizationResult.metrics
+      const emergencyResp = metrics.emergencyResponsiveness
+
+      // Calculate overdue tasks from optimization assignments
+      const now = CURRENT_DATE
+      const overdueTasks = optimizationResult.assignments.filter(
+        (a) => a.endTime < now && a.endTime < a.startTime
+      ).length
+
+      // Calculate avg headway from optimization assignments
+      // Group assignments by washroom and calculate time between cleanings
+      const washroomAssignments = new Map<string, Date[]>()
+      optimizationResult.assignments.forEach((a) => {
+        if (!washroomAssignments.has(a.washroomId)) {
+          washroomAssignments.set(a.washroomId, [])
+        }
+        washroomAssignments.get(a.washroomId)!.push(a.startTime)
+      })
+
+      let totalHeadway = 0
+      let headwayCount = 0
+      washroomAssignments.forEach((times) => {
+        const sortedTimes = [...times].sort((a, b) => a.getTime() - b.getTime())
+        for (let i = 1; i < sortedTimes.length; i++) {
+          const headwayMinutes =
+            (sortedTimes[i].getTime() - sortedTimes[i - 1].getTime()) /
+            (1000 * 60)
+          totalHeadway += headwayMinutes
+          headwayCount++
+        }
+      })
+
+      const avgHeadway =
+        headwayCount > 0 ? totalHeadway / headwayCount : 0
+
+      // Calculate avg happy score as the average of individual washroom scores
+      // This matches what's shown on the optimization page
+      const predictedScores = predictHappyScoresFromSchedule(
+        washrooms.map((w) => w.id),
+        optimizationResult.assignments.map((a) => ({ washroomId: a.washroomId, startTime: a.startTime })),
+        CURRENT_DATE
+      )
+
+      // Calculate average of all predicted scores
+      const scoresArray = Array.from(predictedScores.values())
+      const avgHappyScore = scoresArray.length > 0
+        ? scoresArray.reduce((sum, score) => sum + score, 0) / scoresArray.length
+        : 82 // Fallback if no scores
+
+      return {
+        avgHappyScore: Math.round(avgHappyScore * 10) / 10,
+        activeEmergencies: emergencyEvents.filter((e) => e.status === 'active')
+          .length, // Still use emergencyEvents as it's real-time
+        overdueTasks,
+        avgResponseTime: Math.round(emergencyResp.avgResponseTimeMinutes * 10) / 10,
+        avgHeadway: Math.round(avgHeadway * 10) / 10,
+        avgSlaMinutes: 45, // Default SLA, could be calculated from requirements
+      }
+    }
+
+    // Fallback: Use original calculation when no optimization results
     const now = CURRENT_DATE
 
     // 2. Number of active emergencies
@@ -106,7 +171,7 @@ function MiniKPIPanel() {
               (1000 * 60) // minutes
             return sum + responseTime
           }, 0) / recentResolved.length
-        : 8.5 // Default realistic response time if no recent data (8.5 minutes is good)
+        : null // Return null when no data
 
     // 5. Avg headway vs SLA
     const headways = washrooms
@@ -117,7 +182,7 @@ function MiniKPIPanel() {
       headways.length > 0
         ? headways.reduce((sum, h) => sum + h.headwayMinutes, 0) /
           headways.length
-        : 0
+        : null
 
     const avgSlaMinutes =
       headways.length > 0
@@ -125,60 +190,40 @@ function MiniKPIPanel() {
         : 45
 
     // 1. Expected Average Happy Score - Based on optimization/task assignment quality
-    // Calculation: Base score adjusted by task optimization metrics
-    // Formula: base_score - penalties + bonuses
-    // Base: 82 (good optimization baseline)
-    // Penalties: overdue tasks, active emergencies, poor headway compliance
-    // Bonuses: good headway compliance, fast response times
-    
-    const baseScore = 82 // Base expected score with good optimization
-    
-    // Penalty for overdue tasks (each overdue task reduces score by 0.5)
+    const baseScore = 82
     const overduePenalty = overdueTasks * 0.5
-    
-    // Penalty for active emergencies (each emergency reduces score by 1.5)
     const emergencyPenalty = activeEmergencies * 1.5
-    
-    // Headway compliance bonus/penalty
-    // If avg headway is within SLA, add bonus. If over SLA, subtract penalty
     const headwayComplianceRate = headways.length > 0
       ? headways.filter((h) => h.isWithinSLA).length / headways.length
       : 1.0
-    const headwayBonus = (headwayComplianceRate - 0.8) * 5 // Bonus if >80% compliance, penalty if <80%
-    
-    // Response time bonus/penalty
-    // Fast response times (<10 min) add bonus, slow (>15 min) add penalty
-    const responseTimeBonus = avgResponseTime > 0
-      ? Math.max(0, 10 - avgResponseTime) * 0.3 // Bonus for fast response
-      : 0
-    
-    // Task assignment coverage bonus
-    // More assigned tasks = better optimization
+    const headwayBonus = (headwayComplianceRate - 0.8) * 5
+    const responseTimeBonus =
+      avgResponseTime !== null
+        ? Math.max(0, 10 - avgResponseTime) * 0.3
+        : 0
     const totalTasks = tasks.length
     const assignedTasks = tasks.filter((t) => t.assignedCrewId).length
     const assignmentRate = totalTasks > 0 ? assignedTasks / totalTasks : 1.0
-    const assignmentBonus = (assignmentRate - 0.9) * 3 // Bonus if >90% assigned
-    
-    // Calculate expected score (clamp between 60-95 for realism)
-    let avgHappyScore = baseScore
-      - overduePenalty
-      - emergencyPenalty
-      + headwayBonus
-      + responseTimeBonus
-      + assignmentBonus
-    
-    // Clamp to realistic range
+    const assignmentBonus = (assignmentRate - 0.9) * 3
+
+    let avgHappyScore =
+      baseScore -
+      overduePenalty -
+      emergencyPenalty +
+      headwayBonus +
+      responseTimeBonus +
+      assignmentBonus
     avgHappyScore = Math.max(60, Math.min(95, avgHappyScore))
 
     return {
       avgHappyScore: Math.round(avgHappyScore * 10) / 10,
       activeEmergencies,
       overdueTasks,
-      avgResponseTime: Math.round(avgResponseTime * 10) / 10,
-      avgHeadway: Math.round(avgHeadway * 10) / 10,
+      avgResponseTime: avgResponseTime !== null ? Math.round(avgResponseTime * 10) / 10 : null,
+      avgHeadway: avgHeadway !== null ? Math.round(avgHeadway * 10) / 10 : null,
       avgSlaMinutes: Math.round(avgSlaMinutes),
     }
-  }, [washrooms, tasks, emergencyEvents, happyScores])
+  }, [washrooms, tasks, emergencyEvents, happyScores, optimizationResult])
 
   return (
     <Box sx={{ mb: 3 }}>
@@ -214,18 +259,30 @@ function MiniKPIPanel() {
         <Grid item xs={12} sm={6} md={2.4}>
           <KPICard
             title="Avg Response Time"
-            value={`${kpis.avgResponseTime}m`}
+            value={kpis.avgResponseTime !== null ? `${kpis.avgResponseTime}m` : '—'}
             icon={<AccessTime />}
-            color={kpis.avgResponseTime > 10 ? 'warning' : 'success'}
-            subtitle="Last 24 hours"
+            color={
+              kpis.avgResponseTime === null
+                ? 'primary'
+                : kpis.avgResponseTime > 10
+                  ? 'warning'
+                  : 'success'
+            }
+            subtitle={optimizationResult ? 'From optimization' : 'Last 24 hours'}
           />
         </Grid>
         <Grid item xs={12} sm={6} md={2.4}>
           <KPICard
             title="Avg Headway"
-            value={`${kpis.avgHeadway}m`}
+            value={kpis.avgHeadway !== null ? `${kpis.avgHeadway}m` : '—'}
             icon={<Timeline />}
-            color={kpis.avgHeadway > kpis.avgSlaMinutes ? 'warning' : 'success'}
+            color={
+              kpis.avgHeadway === null
+                ? 'primary'
+                : kpis.avgHeadway > kpis.avgSlaMinutes
+                  ? 'warning'
+                  : 'success'
+            }
             subtitle={`SLA: ${kpis.avgSlaMinutes}m`}
           />
         </Grid>

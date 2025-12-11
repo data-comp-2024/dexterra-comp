@@ -12,12 +12,12 @@ import {
   LinearProgress,
   Chip,
 } from '@mui/material'
-import { TrendingUp, Warning, Balance } from '@mui/icons-material'
+import { Balance } from '@mui/icons-material'
 import { useMemo } from 'react'
 import { useData } from '../../hooks/useData'
 import { useCrew } from '../../context/CrewContext'
 import { useOptimization } from '../../context/OptimizationContext'
-import { Crew, Task } from '../../types'
+import { Crew } from '../../types'
 import { CURRENT_DATE } from '../../constants'
 
 interface CrewWorkload {
@@ -48,15 +48,27 @@ function WorkloadFairness() {
             (a) => a.crewId === member.id
           )
           
+          // Check taskId pattern to identify emergency tasks
+          // Emergency tasks have IDs like "emergency-task-1", "emergency-task-2", etc.
+          // Routine tasks have IDs like "ROUTINE_0001", "ROUTINE_0002", etc.
+          // Also check original tasks array for emergency tasks that were passed to optimizer
           const emergencyTasks = crewAssignments.filter((a) => {
-            const task = optimizationResult.assignments.find((t) => t.taskId === a.taskId)
-            // Check if it's an emergency task (you may need to check task type/priority)
-            return false // For now, assume all are routine from optimization
+            const taskId = a.taskId.toLowerCase()
+            // First check taskId pattern (emergency tasks have "emergency" in their ID)
+            if (taskId.includes('emergency') || taskId.startsWith('emergency')) {
+              return true
+            }
+            // Also check original tasks array if available
+            const originalTask = tasks.find((t) => t.id === a.taskId)
+            if (originalTask) {
+              return originalTask.priority === 'emergency' || originalTask.type === 'emergency_cleaning'
+            }
+            return false
           }).length
           
-          const routineTasks = crewAssignments.length
-          const totalTasks = routineTasks
-          const emergencyRatio = 0
+          const routineTasks = crewAssignments.length - emergencyTasks
+          const totalTasks = crewAssignments.length
+          const emergencyRatio = totalTasks > 0 ? emergencyTasks / totalTasks : 0
           
           // Calculate walking distance from assignments
           const walkingDistance = crewAssignments.reduce((sum, a) => {
@@ -258,4 +270,3 @@ function WorkloadFairness() {
 }
 
 export default WorkloadFairness
-
