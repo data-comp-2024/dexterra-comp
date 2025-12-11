@@ -18,6 +18,15 @@ import {
   IconButton,
   Menu,
   MenuItem,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Button,
+  TextField,
+  FormControl,
+  InputLabel,
+  Select,
 } from '@mui/material'
 import {
   MoreVert,
@@ -39,8 +48,18 @@ function RosterView() {
   const { optimizationResult } = useOptimization()
   const [anchorEl, setAnchorEl] = useState<{ [key: string]: HTMLElement | null }>({})
   const [editDialogOpen, setEditDialogOpen] = useState(false)
+  const [unavailableDialogOpen, setUnavailableDialogOpen] = useState(false)
+  const [unavailableReason, setUnavailableReason] = useState('')
   const [selectedCrew, setSelectedCrew] = useState<Crew | null>(null)
   const now = CURRENT_DATE
+
+  const unavailableReasons = [
+    'Sick',
+    'Pulled to another duty',
+    'Equipment issue',
+    'Personal emergency',
+    'Other',
+  ]
 
   // Separate crew by status
   // Since optimization covers the entire day, combine active and upcoming shifts
@@ -73,9 +92,19 @@ function RosterView() {
     if (member.status === 'unavailable') {
       updateCrewStatus(member.id, 'available')
     } else {
-      updateCrewStatus(member.id, 'unavailable', 'Manual override from Roster')
+      setSelectedCrew(member)
+      setUnavailableDialogOpen(true)
     }
     handleMenuClose(member.id)
+  }
+
+  const handleConfirmUnavailable = () => {
+    if (selectedCrew && unavailableReason) {
+      updateCrewStatus(selectedCrew.id, 'unavailable', unavailableReason)
+      setUnavailableDialogOpen(false)
+      setSelectedCrew(null)
+      setUnavailableReason('')
+    }
   }
 
   const handleEditShift = (member: Crew) => {
@@ -287,6 +316,56 @@ function RosterView() {
           }}
           onSave={handleSaveShift}
         />
+
+        {/* Unavailable Reason Dialog */}
+        <Dialog open={unavailableDialogOpen} onClose={() => setUnavailableDialogOpen(false)} maxWidth="sm" fullWidth>
+          <DialogTitle>Mark Crew Member Unavailable</DialogTitle>
+          <DialogContent>
+            <Box sx={{ mt: 1 }}>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                {selectedCrew?.name} will be marked as unavailable and tasks will be
+                reassigned.
+              </Typography>
+              <FormControl fullWidth sx={{ mb: 2 }}>
+                <InputLabel>Reason</InputLabel>
+                <Select
+                  value={unavailableReason.startsWith('Other:') ? 'Other' : unavailableReason}
+                  onChange={(e) => setUnavailableReason(e.target.value)}
+                  label="Reason"
+                >
+                  {unavailableReasons.map((reason) => (
+                    <MenuItem key={reason} value={reason}>
+                      {reason}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+              {(unavailableReason === 'Other' || unavailableReason.startsWith('Other:')) && (
+                <TextField
+                  fullWidth
+                  label="Specify reason"
+                  multiline
+                  rows={3}
+                  value={unavailableReason.startsWith('Other:') ? unavailableReason.substring(7) : ''}
+                  onChange={(e) => {
+                    setUnavailableReason(`Other: ${e.target.value}`)
+                  }}
+                  placeholder="Enter reason..."
+                />
+              )}
+            </Box>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setUnavailableDialogOpen(false)}>Cancel</Button>
+            <Button
+              variant="contained"
+              onClick={handleConfirmUnavailable}
+              disabled={!unavailableReason}
+            >
+              Mark Unavailable
+            </Button>
+          </DialogActions>
+        </Dialog>
       </CardContent>
     </Card>
   )
