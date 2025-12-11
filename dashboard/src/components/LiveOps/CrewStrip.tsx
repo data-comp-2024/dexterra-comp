@@ -16,12 +16,14 @@ import {
   AccessTime,
 } from '@mui/icons-material'
 import { useMemo } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useData } from '../../hooks/useData'
 import { Crew, CrewStatus } from '../../types'
 import { format, formatDistanceToNow } from 'date-fns'
 import { CURRENT_DATE } from '../../constants'
 
 function CrewStrip() {
+  const navigate = useNavigate()
   const { crew, tasks, washrooms } = useData()
 
   const onShiftCrew = useMemo(() => {
@@ -135,15 +137,20 @@ function CrewStrip() {
               return (
                 <Card
                   key={crewMember.id}
+                  onClick={() => navigate(`/crew-shifts?search=${crewMember.id}`)}
                   sx={{
                     minWidth: 280,
                     maxWidth: 280,
+                    cursor: 'pointer',
                     border: `2px solid ${crewMember.status === 'available'
-                        ? '#06A77D'
-                        : crewMember.status === 'busy'
-                          ? '#ED6C02'
-                          : '#7B2CBF'
+                      ? '#06A77D'
+                      : crewMember.status === 'busy'
+                        ? '#ED6C02'
+                        : '#7B2CBF'
                       }`,
+                    '&:hover': {
+                      boxShadow: 3,
+                    },
                   }}
                 >
                   <CardContent>

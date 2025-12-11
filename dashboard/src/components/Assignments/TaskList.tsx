@@ -35,7 +35,8 @@ import {
   Add,
   Delete,
 } from '@mui/icons-material'
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
+import { useLocation } from 'react-router-dom'
 import { useData } from '../../hooks/useData'
 import { Task, TaskState, TaskPriority, Crew } from '../../types'
 import { format, formatDistanceToNow } from 'date-fns'
@@ -67,12 +68,13 @@ function TaskList({
   onDelete,
   onAdd,
 }: TaskListProps) {
+  const location = useLocation()
   const { tasks: tasksFromData, crew, washrooms } = useData()
   const tasks = tasksProp || tasksFromData
   const taskTitleMap = taskTitleMapProp || new Map<string, string>()
   const [anchorEl, setAnchorEl] = useState<{ [key: string]: HTMLElement | null }>({})
   const [selectedTask, setSelectedTask] = useState<Task | null>(null)
-  
+
   // Filters
   const [typeFilter, setTypeFilter] = useState<string[]>([])
   const [stateFilter, setStateFilter] = useState<TaskState[]>([])
@@ -81,7 +83,18 @@ function TaskList({
   const [washroomFilter, setWashroomFilter] = useState<string[]>([])
   const [crewFilter, setCrewFilter] = useState<string[]>([])
   const [taskIdFilter, setTaskIdFilter] = useState<string>('')
-  
+
+  // Parse search query
+  const searchParams = new URLSearchParams(location.search)
+  const searchId = searchParams.get('search')
+
+  // Auto-filter by search ID if present
+  useEffect(() => {
+    if (searchId) {
+      setTaskIdFilter(searchId)
+    }
+  }, [searchId])
+
   // Sorting
   const [sortField, setSortField] = useState<SortField>('sla')
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc')
@@ -270,7 +283,7 @@ function TaskList({
     const now = CURRENT_DATE
     const remaining = task.slaDeadline.getTime() - now.getTime()
     const minutes = Math.floor(remaining / (1000 * 60))
-    
+
     if (minutes < 0) {
       return { text: `Overdue by ${Math.abs(minutes)}m`, color: 'error' as const }
     } else if (minutes < 30) {
@@ -458,22 +471,22 @@ function TaskList({
             washroomFilter.length > 0 ||
             crewFilter.length > 0 ||
             taskIdFilter) && (
-            <Button
-              size="small"
-              startIcon={<Clear />}
-              onClick={() => {
-                setTypeFilter([])
-                setStateFilter([])
-                setPriorityFilter([])
-                setTerminalFilter([])
-                setWashroomFilter([])
-                setCrewFilter([])
-                setTaskIdFilter('')
-              }}
-            >
-              Clear Filters
-            </Button>
-          )}
+              <Button
+                size="small"
+                startIcon={<Clear />}
+                onClick={() => {
+                  setTypeFilter([])
+                  setStateFilter([])
+                  setPriorityFilter([])
+                  setTerminalFilter([])
+                  setWashroomFilter([])
+                  setCrewFilter([])
+                  setTaskIdFilter('')
+                }}
+              >
+                Clear Filters
+              </Button>
+            )}
         </Box>
 
         <TableContainer sx={{ maxHeight: 600 }}>
@@ -497,12 +510,12 @@ function TaskList({
                   <TableCell colSpan={9} align="center">
                     <Typography variant="body2" color="text.secondary">
                       {typeFilter.length > 0 ||
-                      stateFilter.length > 0 ||
-                      priorityFilter.length > 0 ||
-                      terminalFilter.length > 0 ||
-                      washroomFilter.length > 0 ||
-                      crewFilter.length > 0 ||
-                      taskIdFilter
+                        stateFilter.length > 0 ||
+                        priorityFilter.length > 0 ||
+                        terminalFilter.length > 0 ||
+                        washroomFilter.length > 0 ||
+                        crewFilter.length > 0 ||
+                        taskIdFilter
                         ? 'No tasks found matching filters'
                         : 'No tasks available'}
                     </Typography>
@@ -512,12 +525,22 @@ function TaskList({
                 filteredAndSortedTasks.map((task) => {
                   const slaCountdown = getSlaCountdown(task)
                   const washroom = washrooms.find((w) => w.id === task.washroomId)
+                  const isHighlighted = task.id === searchId
 
                   return (
                     <TableRow
                       key={task.id}
                       hover
-                      sx={{ cursor: 'pointer' }}
+                      ref={(el) => {
+                        if (isHighlighted && el) {
+                          el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+                        }
+                      }}
+                      sx={{
+                        cursor: 'pointer',
+                        bgcolor: isHighlighted ? 'action.selected' : undefined,
+                        border: isHighlighted ? '2px solid #1976d2' : undefined,
+                      }}
                       onClick={() => onTaskSelect?.(task)}
                     >
                       <TableCell>

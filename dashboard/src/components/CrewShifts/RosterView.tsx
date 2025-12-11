@@ -35,7 +35,8 @@ import {
   PersonOff,
   Edit,
 } from '@mui/icons-material'
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
+import { useLocation } from 'react-router-dom'
 import { useCrew } from '../../context/CrewContext'
 import { useOptimization } from '../../context/OptimizationContext'
 import { Crew, CrewStatus } from '../../types'
@@ -44,6 +45,7 @@ import { CURRENT_DATE } from '../../constants'
 import EditShiftDialog from './EditShiftDialog'
 
 function RosterView() {
+  const location = useLocation()
   const { crew, updateCrewStatus, updateCrewDetails } = useCrew()
   const { optimizationResult } = useOptimization()
   const [anchorEl, setAnchorEl] = useState<{ [key: string]: HTMLElement | null }>({})
@@ -52,6 +54,10 @@ function RosterView() {
   const [unavailableReason, setUnavailableReason] = useState('')
   const [selectedCrew, setSelectedCrew] = useState<Crew | null>(null)
   const now = CURRENT_DATE
+
+  // Parse search query
+  const searchParams = new URLSearchParams(location.search)
+  const searchId = searchParams.get('search')
 
   const unavailableReasons = [
     'Sick',
@@ -166,123 +172,138 @@ function RosterView() {
               </TableRow>
             </TableHead>
             <TableBody>
-              {crewList.map((member) => (
-                <TableRow key={member.id} hover>
-                  <TableCell>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                      <Avatar
-                        sx={{
-                          bgcolor: 'primary.main',
-                          width: 40,
-                          height: 40,
-                        }}
-                      >
-                        {getInitials(member.name)}
-                      </Avatar>
-                      <Typography variant="body1" sx={{ fontWeight: 500 }}>
-                        {member.name}
-                      </Typography>
-                    </Box>
-                  </TableCell>
-                  <TableCell>
-                    <Typography variant="body2">{member.role}</Typography>
-                  </TableCell>
-                  <TableCell>
-                    <Chip
-                      label={member.status.replace('_', ' ')}
-                      size="small"
-                      color={getStatusColor(member.status) as any}
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <Box>
-                      <Typography variant="body2">
-                        {format(member.shift.startTime, 'HH:mm')} -{' '}
-                        {format(member.shift.endTime, 'HH:mm')}
-                      </Typography>
-                      <Typography variant="caption" color="text.secondary">
-                        {isBefore(now, member.shift.startTime)
-                          ? `Starts ${format(member.shift.startTime, 'MMM d')}`
-                          : isAfter(now, member.shift.endTime)
-                            ? `Ended ${format(member.shift.endTime, 'MMM d')}`
-                            : 'Active'}
-                      </Typography>
-                    </Box>
-                  </TableCell>
-                  <TableCell>
-                    {(() => {
-                      // Check optimization results first, then fallback to current task
-                      const crewSchedule = optimizationResult?.crewSchedules[member.id] || []
-                      const currentScheduleEvent = crewSchedule.find(
-                        (event) => now >= event.start && now < event.end && event.taskId
-                      )
-                      
-                      if (currentScheduleEvent?.taskId) {
-                        return (
-                          <Typography variant="body2" color="primary">
-                            {currentScheduleEvent.taskId}
-                          </Typography>
-                        )
+              {crewList.map((member) => {
+                const isHighlighted = member.id === searchId
+                return (
+                  <TableRow
+                    key={member.id}
+                    hover
+                    ref={(el) => {
+                      if (isHighlighted && el) {
+                        el.scrollIntoView({ behavior: 'smooth', block: 'center' })
                       }
-                      
-                      if (member.currentTaskId) {
-                        return (
-                          <Typography variant="body2" color="primary">
-                            {member.currentTaskId}
-                          </Typography>
+                    }}
+                    sx={{
+                      bgcolor: isHighlighted ? 'action.selected' : undefined,
+                      border: isHighlighted ? '2px solid #1976d2' : undefined,
+                    }}
+                  >
+                    <TableCell>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                        <Avatar
+                          sx={{
+                            bgcolor: 'primary.main',
+                            width: 40,
+                            height: 40,
+                          }}
+                        >
+                          {getInitials(member.name)}
+                        </Avatar>
+                        <Typography variant="body1" sx={{ fontWeight: 500 }}>
+                          {member.name}
+                        </Typography>
+                      </Box>
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="body2">{member.role}</Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Chip
+                        label={member.status.replace('_', ' ')}
+                        size="small"
+                        color={getStatusColor(member.status) as any}
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <Box>
+                        <Typography variant="body2">
+                          {format(member.shift.startTime, 'HH:mm')} -{' '}
+                          {format(member.shift.endTime, 'HH:mm')}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          {isBefore(now, member.shift.startTime)
+                            ? `Starts ${format(member.shift.startTime, 'MMM d')}`
+                            : isAfter(now, member.shift.endTime)
+                              ? `Ended ${format(member.shift.endTime, 'MMM d')}`
+                              : 'Active'}
+                        </Typography>
+                      </Box>
+                    </TableCell>
+                    <TableCell>
+                      {(() => {
+                        // Check optimization results first, then fallback to current task
+                        const crewSchedule = optimizationResult?.crewSchedules[member.id] || []
+                        const currentScheduleEvent = crewSchedule.find(
+                          (event) => now >= event.start && now < event.end && event.taskId
                         )
-                      }
-                      
-                      // Show next scheduled task if available
-                      const nextTask = crewSchedule.find((event) => event.start > now && event.taskId)
-                      if (nextTask) {
+                        
+                        if (currentScheduleEvent?.taskId) {
+                          return (
+                            <Typography variant="body2" color="primary">
+                              {currentScheduleEvent.taskId}
+                            </Typography>
+                          )
+                        }
+                        
+                        if (member.currentTaskId) {
+                          return (
+                            <Typography variant="body2" color="primary">
+                              {member.currentTaskId}
+                            </Typography>
+                          )
+                        }
+                        
+                        // Show next scheduled task if available
+                        const nextTask = crewSchedule.find((event) => event.start > now && event.taskId)
+                        if (nextTask) {
+                          return (
+                            <Typography variant="body2" color="text.secondary">
+                              Next: {format(nextTask.start, 'HH:mm')}
+                            </Typography>
+                          )
+                        }
+                        
                         return (
                           <Typography variant="body2" color="text.secondary">
-                            Next: {format(nextTask.start, 'HH:mm')}
+                            None
                           </Typography>
                         )
-                      }
-                      
-                      return (
-                        <Typography variant="body2" color="text.secondary">
-                          None
-                        </Typography>
-                      )
-                    })()}
-                  </TableCell>
-                  <TableCell align="right">
-                    <IconButton
-                      size="small"
-                      onClick={(e) => handleMenuOpen(member.id, e)}
-                    >
-                      <MoreVert />
-                    </IconButton>
-                    <Menu
-                      anchorEl={anchorEl[member.id]}
-                      open={Boolean(anchorEl[member.id])}
-                      onClose={() => handleMenuClose(member.id)}
-                    >
-                      <MenuItem onClick={() => handleEditShift(member)}>
-                        <Edit sx={{ mr: 1 }} fontSize="small" />
-                        Edit Shift & Status
-                      </MenuItem>
-                      <MenuItem onClick={() => handleToggleStatus(member)}>
-                        {member.status === 'unavailable' ? (
-                          <>
-                            <CheckCircle sx={{ mr: 1 }} fontSize="small" />
-                            Mark Available
-                          </>
-                        ) : (
-                          <>
-                            <PersonOff sx={{ mr: 1 }} fontSize="small" />
-                            Mark Unavailable
-                          </>
-                        )}
-                      </MenuItem>
-                    </Menu>
-                  </TableCell>
-                </TableRow>
-              ))}
+                      })()}
+                    </TableCell>
+                    <TableCell align="right">
+                      <IconButton
+                        size="small"
+                        onClick={(e) => handleMenuOpen(member.id, e)}
+                      >
+                        <MoreVert />
+                      </IconButton>
+                      <Menu
+                        anchorEl={anchorEl[member.id]}
+                        open={Boolean(anchorEl[member.id])}
+                        onClose={() => handleMenuClose(member.id)}
+                      >
+                        <MenuItem onClick={() => handleEditShift(member)}>
+                          <Edit sx={{ mr: 1 }} fontSize="small" />
+                          Edit Shift & Status
+                        </MenuItem>
+                        <MenuItem onClick={() => handleToggleStatus(member)}>
+                          {member.status === 'unavailable' ? (
+                            <>
+                              <CheckCircle sx={{ mr: 1 }} fontSize="small" />
+                              Mark Available
+                            </>
+                          ) : (
+                            <>
+                              <PersonOff sx={{ mr: 1 }} fontSize="small" />
+                              Mark Unavailable
+                            </>
+                          )}
+                        </MenuItem>
+                      </Menu>
+                    </TableCell>
+                  </TableRow>
+                )
+              })}
             </TableBody>
           </Table>
         </TableContainer>

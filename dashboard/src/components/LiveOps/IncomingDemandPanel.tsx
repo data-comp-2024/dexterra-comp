@@ -26,6 +26,7 @@ import {
 } from '@mui/icons-material'
 import { useState, useMemo } from 'react'
 import { useDispatch } from 'react-redux'
+import { useNavigate } from 'react-router-dom'
 import { useData } from '../../hooks/useData'
 import { Task, EmergencyEvent, TaskPriority } from '../../types'
 import { updateTask, updateEmergencyEvent, addActivityLogEntry } from '../../store/slices/dataSlice'
@@ -43,6 +44,7 @@ interface DemandItem {
 
 function IncomingDemandPanel() {
   const dispatch = useDispatch()
+  const navigate = useNavigate()
   const { tasks, emergencyEvents, washrooms } = useData()
   const [anchorEl, setAnchorEl] = useState<{ [key: string]: HTMLElement | null }>({})
   const [sortBy, setSortBy] = useState<'time' | 'priority' | 'location'>('time')
@@ -165,6 +167,14 @@ function IncomingDemandPanel() {
     }
   }
 
+  const handleItemClick = (item: DemandItem) => {
+    if (item.type === 'emergency') {
+      navigate(`/incidents-alerts?search=${item.id}`)
+    } else if (item.type === 'task') {
+      navigate(`/assignments?search=${item.id}`)
+    }
+  }
+
   return (
     <Card sx={{ mb: 3 }}>
       <CardContent>
@@ -211,12 +221,14 @@ function IncomingDemandPanel() {
             demandItems.map((item) => (
               <ListItem
                 key={item.id}
+                button
+                onClick={() => handleItemClick(item)}
                 sx={{
                   borderLeft: `4px solid ${item.priority === 'critical' || item.priority === 'emergency'
-                      ? '#D32F2F'
-                      : item.priority === 'high'
-                        ? '#ED6C02'
-                        : '#7B2CBF'
+                    ? '#D32F2F'
+                    : item.priority === 'high'
+                      ? '#ED6C02'
+                      : '#7B2CBF'
                     }`,
                   mb: 1,
                   bgcolor: 'action.hover',
@@ -259,7 +271,10 @@ function IncomingDemandPanel() {
                 <ListItemSecondaryAction>
                   <IconButton
                     edge="end"
-                    onClick={(e) => handleMenuOpen(item.id, e)}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      handleMenuOpen(item.id, e)
+                    }}
                   >
                     <MoreVert />
                   </IconButton>

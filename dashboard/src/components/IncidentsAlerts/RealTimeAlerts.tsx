@@ -25,8 +25,9 @@ import {
   Assignment,
   CheckCircle,
 } from '@mui/icons-material'
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useDispatch } from 'react-redux'
+import { useLocation } from 'react-router-dom'
 import { useData } from '../../hooks/useData'
 import { EmergencyEvent } from '../../types'
 import { updateEmergencyEvent, updateHappyScore, addActivityLogEntry } from '../../store/slices/dataSlice'
@@ -47,10 +48,15 @@ interface AlertItem {
 
 function RealTimeAlerts() {
   const dispatch = useDispatch()
+  const location = useLocation()
   const { emergencyEvents, washrooms, happyScores, crew } = useData()
   const [anchorEl, setAnchorEl] = useState<{ [key: string]: HTMLElement | null }>({})
   const [typeFilter, setTypeFilter] = useState<string[]>([])
   const [severityFilter, setSeverityFilter] = useState<string[]>([])
+
+  // Parse search query
+  const searchParams = new URLSearchParams(location.search)
+  const searchId = searchParams.get('search')
 
   const alerts = useMemo(() => {
     const alertItems: AlertItem[] = []
@@ -278,10 +284,16 @@ function RealTimeAlerts() {
           ) : (
             alerts.map((alert) => {
               const slaProgress = getSlaProgress(alert)
+              const isHighlighted = alert.id === searchId
 
               return (
                 <ListItem
                   key={alert.id}
+                  ref={(el) => {
+                    if (isHighlighted && el) {
+                      el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+                    }
+                  }}
                   sx={{
                     borderLeft: `4px solid ${alert.severity === 'critical' || alert.severity === 'high'
                       ? '#D32F2F'
@@ -290,8 +302,9 @@ function RealTimeAlerts() {
                         : '#FFC107'
                       }`,
                     mb: 1,
-                    bgcolor: 'action.hover',
+                    bgcolor: isHighlighted ? 'action.selected' : 'action.hover',
                     borderRadius: 1,
+                    border: isHighlighted ? '2px solid #1976d2' : undefined,
                   }}
                 >
                   <Box sx={{ mr: 2 }}>
