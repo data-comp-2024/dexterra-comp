@@ -8,6 +8,7 @@ import { runOptimization, CleaningRequirement, CrewAssignment } from '../service
 import { generateCleaningRequirementsFromFlights } from '../services/flightBasedRequirements'
 import { predictHappyScoresFromSchedule } from '../services/happyScorePrediction'
 import { useOptimization } from '../context/OptimizationContext'
+import { Flight } from '../types'
 import { Task, TaskType, TaskPriority, TaskState } from '../types'
 import { CURRENT_DATE } from '../constants'
 
@@ -26,13 +27,12 @@ interface ProposedAssignment {
 
 function Optimizer() {
   const { tasks, crew, washrooms, flights } = useData()
-  const { setOptimizedTasks } = useOptimization()
+  const { setOptimizedTasks, setOptimizationResult, optimizationResult } = useOptimization()
   const [isRunning, setIsRunning] = useState(false)
   const [proposedAssignments, setProposedAssignments] = useState<ProposedAssignment[]>([])
   const [selectedTaskIds, setSelectedTaskIds] = useState<Set<string>>(new Set())
   const [showApplyDialog, setShowApplyDialog] = useState(false)
   const [showCancelDialog, setShowCancelDialog] = useState(false)
-  const [optimizationResult, setOptimizationResult] = useState<any>(null)
   const [happyScores, setHappyScores] = useState<Map<string, number>>(new Map())
   const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: 'success' | 'error' }>({
     open: false,
@@ -104,9 +104,11 @@ function Optimizer() {
         cleaningRequirements,
         simulationDurationHours,
         1, // 1 minute time step
-        params.cleaningFrequencyHours // Pass cleaning frequency
+        params.cleaningFrequencyHours, // Pass cleaning frequency
+        flights // Pass flights for peak time calculation
       )
 
+      // Store full optimization result in context for CrewShifts page
       setOptimizationResult(result)
 
       // Predict happy scores based on schedule

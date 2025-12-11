@@ -3,7 +3,7 @@
  * Implements a simplified version of the Python cleaning_crew_optimizer.py heuristic
  */
 
-import { Task, Crew, Washroom, TaskType, TaskPriority, TaskState } from '../types'
+import { Task, Crew, Washroom, TaskType, TaskPriority, TaskState, Flight } from '../types'
 import { estimateTravelTime } from './dataTransform'
 import { CURRENT_DATE } from '../constants'
 
@@ -160,6 +160,102 @@ function scheduleRoutineCleanings(
 }
 
 /**
+ * Calculate peak times based on flights
+ * Returns a map of time (in ms) to peak intensity (0-1) for each washroom
+ */
+function calculatePeakTimes(
+  flights: Flight[],
+  washrooms: Washroom[],
+  startTime: Date,
+  endTime: Date
+): Map<string, Map<number, number>> {
+  const peakTimes = new Map<string, Map<number, number>>()
+  
+  // Initialize peak times for all washrooms
+  washrooms.forEach((w) => {
+    peakTimes.set(w.id, new Map<number, number>())
+  })
+
+  // Process each flight to determine peak periods
+  flights.forEach((flight) => {
+    const flightTime =
+      flight.actualArrivalTime ||
+      flight.actualDepartureTime ||
+      flight.scheduledArrivalTime ||
+      flight.scheduledDepartureTime
+
+    if (!flightTime) return
+
+    // Determine peak period based on flight type
+    // Arrivals: peak is 0-30 min after arrival (passengers deplaning)
+    // Departures: peak is 30-90 min before departure (passengers boarding)
+    let peakStart: Date
+    let peakEnd: Date
+    const passengers = flight.passengers || 100
+
+    if (flight.actualArrivalTime || flight.scheduledArrivalTime) {
+      // Arrival flight - peak right after arrival
+      peakStart = new Date(flightTime.getTime())
+      peakEnd = new Date(flightTime.getTime() + 30 * 60 * 1000) // 30 min after
+    } else {
+      // Departure flight - peak before departure
+      peakStart = new Date(flightTime.getTime() - 90 * 60 * 1000) // 90 min before
+      peakEnd = new Date(flightTime.getTime() - 30 * 60 * 1000) // 30 min before
+    }
+
+    // Find washrooms near this gate
+    const gate = flight.gate || ''
+    const nearbyWashrooms = washrooms.filter((w) => {
+      if (!gate) return true // If no gate, apply to all washrooms
+      return w.gateProximity === gate || !w.gateProximity
+    })
+
+    // Calculate peak intensity based on passenger count
+    // Normalize to 0-1 scale (assuming max 300 passengers = 1.0)
+    const intensity = Math.min(passengers / 300, 1.0)
+
+    // Distribute peak intensity across the peak period (hourly buckets)
+    const bucketSizeMs = 60 * 60 * 1000 // 1 hour buckets
+    let currentBucket = Math.floor(peakStart.getTime() / bucketSizeMs) * bucketSizeMs
+
+    while (currentBucket < peakEnd.getTime()) {
+      const bucketEnd = currentBucket + bucketSizeMs
+      const overlapStart = Math.max(currentBucket, peakStart.getTime())
+      const overlapEnd = Math.min(bucketEnd, peakEnd.getTime())
+      const overlapRatio = (overlapEnd - overlapStart) / bucketSizeMs
+
+      nearbyWashrooms.forEach((washroom) => {
+        const washroomPeaks = peakTimes.get(washroom.id)!
+        const existingIntensity = washroomPeaks.get(currentBucket) || 0
+        // Add intensity, but cap at 1.0
+        washroomPeaks.set(currentBucket, Math.min(existingIntensity + intensity * overlapRatio, 1.0))
+      })
+
+      currentBucket += bucketSizeMs
+    }
+  })
+
+  return peakTimes
+}
+
+/**
+ * Get peak intensity for a washroom at a specific time
+ */
+function getPeakIntensity(
+  washroomId: string,
+  time: Date,
+  peakTimes: Map<string, Map<number, number>>
+): number {
+  const washroomPeaks = peakTimes.get(washroomId)
+  if (!washroomPeaks) return 0
+
+  // Find the hour bucket for this time
+  const bucketSizeMs = 60 * 60 * 1000
+  const bucket = Math.floor(time.getTime() / bucketSizeMs) * bucketSizeMs
+  return washroomPeaks.get(bucket) || 0
+}
+
+/**
  * Calculate assignment score (higher is better)
  */
 function calculateAssignmentScore(
@@ -167,7 +263,8 @@ function calculateAssignmentScore(
   task: InternalTask,
   currentTime: Date,
   washrooms: Map<string, Washroom>,
-  crewLocation: string
+  crewLocation: string,
+  peakTimes?: Map<string, Map<number, number>>
 ): number {
   let score = 0.0
 
@@ -183,6 +280,17 @@ function calculateAssignmentScore(
   if (crewWashroom && taskWashroom) {
     const travelTime = estimateTravelTime(crewWashroom, taskWashroom)
     score -= travelTime * 2
+  }
+
+  // Peak time bonus - prioritize cleaning during peak periods
+  if (peakTimes && task.priority !== 'emergency') {
+    // Check peak intensity at task start time (after travel)
+    const taskStartTime = new Date(
+      currentTime.getTime() + (crewWashroom && taskWashroom ? estimateTravelTime(crewWashroom, taskWashroom) * 60 * 1000 : 0)
+    )
+    const peakIntensity = getPeakIntensity(task.washroomId, taskStartTime, peakTimes)
+    // Bonus for cleaning during peak times (up to 40 points)
+    score += peakIntensity * 40
   }
 
   // Urgency bonus
@@ -240,13 +348,33 @@ function isCrewAvailable(crewState: CrewState, currentTime: Date): boolean {
 }
 
 /**
+ * Check if a washroom is already occupied during a time period
+ */
+function isWashroomOccupied(
+  washroomId: string,
+  startTime: Date,
+  endTime: Date,
+  existingAssignments: CrewAssignment[]
+): boolean {
+  // Check if any existing assignment overlaps with the proposed time period
+  return existingAssignments.some((assignment) => {
+    if (assignment.washroomId !== washroomId) {
+      return false
+    }
+    // Check for overlap: assignment overlaps if it starts before proposed end and ends after proposed start
+    return assignment.startTime < endTime && assignment.endTime > startTime
+  })
+}
+
+/**
  * Find best crew for a task
  */
 function findBestCrew(
   task: InternalTask,
   crewStates: CrewState[],
   currentTime: Date,
-  washrooms: Map<string, Washroom>
+  washrooms: Map<string, Washroom>,
+  peakTimes?: Map<string, Map<number, number>>
 ): CrewState | null {
   const availableCrew = crewStates.filter((cs) => isCrewAvailable(cs, currentTime))
 
@@ -263,7 +391,8 @@ function findBestCrew(
       task,
       currentTime,
       washrooms,
-      crewState.currentLocation
+      crewState.currentLocation,
+      peakTimes
     )
 
     if (score > bestScore) {
@@ -285,7 +414,8 @@ export function runOptimization(
   cleaningRequirements: CleaningRequirement[],
   simulationDurationHours: number = 8,
   timeStepMinutes: number = 1,
-  cleaningFrequencyHours?: number
+  cleaningFrequencyHours?: number,
+  flights?: Flight[]
 ): OptimizationResult {
   // Start simulation at beginning of day (Dec 31, 2024, 00:00:00)
   const dayStart = new Date(CURRENT_DATE)
@@ -295,6 +425,9 @@ export function runOptimization(
   // Use day start as simulation start time
   const startTime = dayStart
   const endTime = new Date(startTime.getTime() + simulationDurationHours * 60 * 60 * 1000)
+
+  // Calculate peak times based on flights
+  const peakTimes = flights ? calculatePeakTimes(flights, washrooms, startTime, endTime) : undefined
 
   // Convert existing tasks to internal format, filtering out normal tasks for today
   const todayStart = new Date(startTime)
@@ -390,7 +523,7 @@ export function runOptimization(
 
     // Assign tasks to crew
     for (const task of readyTasks) {
-      const bestCrew = findBestCrew(task, crewStates, currentTime, washroomMap)
+      const bestCrew = findBestCrew(task, crewStates, currentTime, washroomMap, peakTimes)
 
       if (bestCrew) {
         const crewWashroom = washroomMap.get(bestCrew.currentLocation)
@@ -401,6 +534,13 @@ export function runOptimization(
           const cleaningDuration = task.estimatedDurationMinutes
           const startTime = new Date(currentTime.getTime() + travelTime * 60 * 1000)
           const endTime = new Date(startTime.getTime() + cleaningDuration * 60 * 1000)
+
+          // Check if washroom is already occupied during this time period
+          // Only one person can clean a washroom at a time
+          if (isWashroomOccupied(task.washroomId, startTime, endTime, assignments)) {
+            // Washroom is already occupied, skip this assignment
+            continue
+          }
 
           // Record assignment
           assignments.push({
@@ -542,6 +682,8 @@ export function runOptimization(
 /**
  * Calculate emergency responsiveness based on crew schedules
  * Simulates emergency events throughout the day and calculates response times
+ * Response time = wait time (until crew becomes available) + travel time + cleaning duration
+ * The busier the crew, the longer the wait time, resulting in worse response times
  */
 function calculateEmergencyResponsiveness(
   crewSchedules: Record<string, CrewScheduleEvent[]>,
@@ -557,6 +699,9 @@ function calculateEmergencyResponsiveness(
   let timeStepsWithAvailableCrew = 0
   let totalCrewAvailable = 0
 
+  // Emergency cleaning duration (minutes)
+  const EMERGENCY_CLEANING_DURATION = CLEANING_DURATIONS.emergency_cleaning
+
   // Sample emergency scenarios throughout the day (every hour)
   const sampleTimes: Date[] = []
   for (let t = startTime.getTime(); t <= endTime.getTime(); t += 60 * 60 * 1000) {
@@ -564,53 +709,117 @@ function calculateEmergencyResponsiveness(
   }
 
   for (const emergencyTime of sampleTimes) {
-    // Find available crew at this time
-    const availableCrew = crewStates.filter((cs) => {
-      const crew = cs.crew
-      const shiftStart = crew.shift.startTime
-      const shiftEnd = crew.shift.endTime
+    // Simulate emergency at multiple washrooms to get average response
+    const washroomIds = Array.from(washroomMap.keys())
+    const sampleWashrooms = washroomIds.slice(0, Math.min(10, washroomIds.length)) // Sample 10 washrooms
 
-      // Check if crew is on shift
-      if (emergencyTime < shiftStart || emergencyTime > shiftEnd) {
-        return false
-      }
+    for (const emergencyWashroomId of sampleWashrooms) {
+      const emergencyWashroom = washroomMap.get(emergencyWashroomId)
+      if (!emergencyWashroom) continue
 
-      // Check if crew is busy (has a task that overlaps with emergency time)
-      const crewSchedule = crewSchedules[crew.id] || []
-      const isBusy = crewSchedule.some((event) => {
-        return emergencyTime >= event.start && emergencyTime < event.end
-      })
+      // Find the earliest time any crew can complete the emergency task
+      let bestResponseTime = Infinity
+      let crewAvailableCount = 0
 
-      return !isBusy
-    })
+      for (const crewState of crewStates) {
+        const crew = crewState.crew
+        const shiftStart = crew.shift.startTime
+        const shiftEnd = crew.shift.endTime
 
-    totalTimeSteps++
-    if (availableCrew.length > 0) {
-      timeStepsWithAvailableCrew++
-      totalCrewAvailable += availableCrew.length
+        // Check if crew is on shift
+        if (emergencyTime < shiftStart || emergencyTime > shiftEnd) {
+          continue
+        }
 
-      // Simulate emergency at multiple washrooms to get average response
-      const washroomIds = Array.from(washroomMap.keys())
-      const sampleWashrooms = washroomIds.slice(0, Math.min(10, washroomIds.length)) // Sample 10 washrooms
+        // Find when this crew can start the emergency task
+        const crewSchedule = crewSchedules[crew.id] || []
+        
+        // Sort schedule by start time
+        const sortedSchedule = [...crewSchedule].sort((a, b) => a.start.getTime() - b.start.getTime())
+        
+        // Find the earliest time when crew becomes available after emergencyTime
+        let earliestAvailableTime = emergencyTime
+        let crewLocationAtTime = crewState.currentLocation
+        
+        // Check if crew is busy at emergency time
+        const overlappingEvent = sortedSchedule.find((event) => {
+          return emergencyTime >= event.start && emergencyTime < event.end
+        })
 
-      for (const emergencyWashroomId of sampleWashrooms) {
-        const emergencyWashroom = washroomMap.get(emergencyWashroomId)
-        if (emergencyWashroom && availableCrew.length > 0) {
-          // Find closest available crew
-          let minTravelTime = Infinity
-          for (const crewState of availableCrew) {
-            const crewLocation = crewState.currentLocation
-            const crewWashroom = washroomMap.get(crewLocation)
-            if (crewWashroom) {
-              const travelTime = estimateTravelTime(crewWashroom, emergencyWashroom)
-              minTravelTime = Math.min(minTravelTime, travelTime)
+        if (overlappingEvent) {
+          // Crew is busy, find when they become free
+          let currentTime = overlappingEvent.end
+          let lastEvent = overlappingEvent
+          
+          // Check for back-to-back tasks (no gap between tasks)
+          while (true) {
+            // Find next event that starts right after currentTime (within 1 minute buffer)
+            const nextEvent = sortedSchedule.find((event) => {
+              const gapMs = event.start.getTime() - currentTime.getTime()
+              return gapMs >= 0 && gapMs < 60 * 1000 // Less than 1 minute gap
+            })
+            
+            if (nextEvent) {
+              // Back-to-back task, continue waiting
+              currentTime = nextEvent.end
+              lastEvent = nextEvent
+            } else {
+              // No more back-to-back tasks, crew is available at currentTime
+              earliestAvailableTime = currentTime
+              // Crew location is where they finished their last task
+              if (lastEvent.washroomId) {
+                crewLocationAtTime = lastEvent.washroomId
+              }
+              break
             }
           }
-
-          if (minTravelTime < Infinity) {
-            responseTimes.push(minTravelTime)
+        } else {
+          // Crew is immediately available at emergencyTime
+          // Find their location at emergencyTime (where they finished their last task)
+          const eventsBeforeTime = sortedSchedule
+            .filter((event) => event.end <= emergencyTime)
+            .sort((a, b) => b.end.getTime() - a.end.getTime())
+          
+          if (eventsBeforeTime.length > 0 && eventsBeforeTime[0].washroomId) {
+            crewLocationAtTime = eventsBeforeTime[0].washroomId
           }
         }
+
+        // Check if crew can still complete task within their shift
+        const taskEndTime = new Date(
+          earliestAvailableTime.getTime() + 
+          EMERGENCY_CLEANING_DURATION * 60 * 1000
+        )
+        
+        if (taskEndTime > shiftEnd) {
+          // Crew can't complete task within shift, skip
+          continue
+        }
+
+        const crewWashroom = washroomMap.get(crewLocationAtTime)
+        if (!crewWashroom) continue
+
+        const travelTime = estimateTravelTime(crewWashroom, emergencyWashroom)
+        
+        // Total response time = wait time + travel time + cleaning duration
+        const waitTimeMinutes = Math.max(0, (earliestAvailableTime.getTime() - emergencyTime.getTime()) / (1000 * 60))
+        const totalResponseTime = waitTimeMinutes + travelTime + EMERGENCY_CLEANING_DURATION
+
+        // Only consider this crew if they can respond (response time is finite and reasonable)
+        if (totalResponseTime < Infinity && totalResponseTime < 120) { // Max 2 hours response time
+          bestResponseTime = Math.min(bestResponseTime, totalResponseTime)
+          crewAvailableCount++
+        }
+      }
+
+      if (bestResponseTime < Infinity) {
+        responseTimes.push(bestResponseTime)
+      }
+
+      totalTimeSteps++
+      if (crewAvailableCount > 0) {
+        timeStepsWithAvailableCrew++
+        totalCrewAvailable += crewAvailableCount
       }
     }
   }

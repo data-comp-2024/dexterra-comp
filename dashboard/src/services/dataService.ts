@@ -1058,53 +1058,186 @@ export async function loadCrewData(): Promise<Crew[]> {
         transformHeader: (header) => header.trim(),
         complete: (results) => {
           if (results.data && results.data.length > 0) {
+            // Try different possible column names for the name field
+            const nameColumns = ['Name', 'name', 'NAME', 'Crew', 'crew', 'CREW', 'Crew Name', 'CrewName']
+            let nameColumn: string | null = null
+            
+            // Find which column contains names
+            const firstRow = results.data[0] as any
+            for (const col of nameColumns) {
+              if (firstRow && (col in firstRow)) {
+                nameColumn = col
+                break
+              }
+            }
+            
+            if (!nameColumn) {
+              console.warn('Could not find Name column in CSV, checking all columns:', Object.keys(firstRow || {}))
+              // Try to find any column that looks like it contains names
+              for (const key in firstRow) {
+                const value = String(firstRow[key] || '').trim()
+                if (value && value.length > 0 && !value.match(/^\d+$/) && !value.match(/^\d{4}-\d{2}-\d{2}/)) {
+                  nameColumn = key
+                  console.log(`Using column "${key}" as name column`)
+                  break
+                }
+              }
+            }
+            
+            if (!nameColumn) {
+              console.warn('Could not identify name column in CSV, using mock data')
+              resolve(generateMockCrew())
+              return
+            }
+
             results.data.forEach((row: any) => {
-              let name = String(row['Name'] || '').trim()
-              const dtStr = String(row['dt'] || '').trim()
+              let name = String(row[nameColumn!] || '').trim()
+              const dtStr = String(row['dt'] || row['DT'] || row['Date'] || row['date'] || '').trim()
 
               // Remove quotes if present
               name = name.replace(/^["']|["']$/g, '')
 
-              if (!name || name === 'Name') return // Skip header or empty names
+              if (!name || name === nameColumn || name.toLowerCase() === 'name') return // Skip header or empty names
 
-              // Extract date part
-              const dateMatch = dtStr.match(/^(\d{4}-\d{2}-\d{2})/)
-              if (!dateMatch) return
-              const taskDateStr = dateMatch[1]
-
-              // Track all crew members
-              if (!crewMap.has(name)) {
-                crewMap.set(name, { name, activeOnDec31: false })
-              }
-
-              // Mark as active on Dec 31 if they have tasks on that date
-              if (taskDateStr === dec31DateStr) {
-                const crewInfo = crewMap.get(name)
-                if (crewInfo) {
-                  crewInfo.activeOnDec31 = true
+              // Extract date part - handle ISO format with timezone (e.g., "2024-12-31 23:45:09-05:00")
+              let taskDateStr: string | null = null
+              
+              // Try ISO format first: "2024-12-31 23:45:09-05:00" or "2024-12-31T23:45:09-05:00"
+              const isoMatch = dtStr.match(/^(\d{4}-\d{2}-\d{2})[\sT]/)
+              if (isoMatch) {
+                taskDateStr = isoMatch[1]
+              } else {
+                // Try simple date format: "2024-12-31"
+                const dateMatch = dtStr.match(/^(\d{4}-\d{2}-\d{2})/)
+                if (dateMatch) {
+                  taskDateStr = dateMatch[1]
+                } else {
+                  // Try finding date anywhere in string
+                  const altMatch = dtStr.match(/(\d{4}-\d{2}-\d{2})/)
+                  if (altMatch) {
+                    taskDateStr = altMatch[1]
+                  }
                 }
               }
+
+              // ONLY track crew members who have tasks on Dec 31, 2024
+              if (taskDateStr === dec31DateStr) {
+                if (!crewMap.has(name)) {
+                  crewMap.set(name, { name, activeOnDec31: true })
+                } else {
+                  // Already tracked, ensure it's marked as active
+                  const crewInfo = crewMap.get(name)
+                  if (crewInfo) {
+                    crewInfo.activeOnDec31 = true
+                  }
+                }
+              }
+              // Skip all rows that are NOT from Dec 31, 2024
             })
+            
+            console.log(`Found ${crewMap.size} unique crew members from Dec 31, 2024 CSV`)
+          } else {
+            console.warn('CSV file has no data rows, using mock data')
+            resolve(generateMockCrew())
+            return
           }
 
-          // Convert to Crew array
-          const crew: Crew[] = Array.from(crewMap.values()).map((crewInfo, index) => {
+          if (crewMap.size === 0) {
+            console.warn('No crew members found for Dec 31, 2024 in CSV, using mock data')
+            resolve(generateMockCrew())
+            return
+          }
+
+          // All crew in the map should be from Dec 31 (we filtered above)
+          const crewWhoWorkedDec31 = Array.from(crewMap.values())
+
+          console.log(`Loading ${crewWhoWorkedDec31.length} crew members who worked on Dec 31, 2024:`)
+          console.log('Names:', crewWhoWorkedDec31.map(c => c.name).sort().join(', '))
+
+          // Convert to Crew array with varied shift times spread throughout the day
+          // IMPORTANT: Use names from CSV, not mock names
+          // ONLY include crew who actually worked on Dec 31
+          const crew: Crew[] = crewWhoWorkedDec31.map((crewInfo, index) => {
             const crewId = `crew-${index + 1}`
             const now = new Date('2024-12-31T12:00:00') // Dec 31, 2024, noon
-            const startTime = new Date(now)
-            startTime.setHours(6, 0, 0, 0) // Default shift: 6 AM
-            const endTime = new Date(now)
-            endTime.setHours(18, 0, 0, 0) // Default shift: 6 PM
+            const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0)
+            
+            // Spread shifts throughout the entire 24-hour day
+            const shiftDuration = 8 * 60 * 60 * 1000 // 8 hours
+            const dayDuration = 24 * 60 * 60 * 1000 // 24 hours
+            
+            // Spread shifts evenly across entire 24-hour day
+            // For 18 crew members, distribute them across 24 hours with 8-hour shifts
+            // This ensures continuous coverage throughout the day
+            const totalCrew = crewWhoWorkedDec31.length
+            
+            // Distribute shift starts evenly across 24 hours
+            // Each shift is 8 hours, so we need overlapping shifts
+            // Formula: (index * 24 / (totalCrew / 3)) % 24
+            // This gives us ~3 shifts worth of coverage spread across 24 hours
+            const shiftsPerDay = Math.ceil(totalCrew / 6) // ~3 shifts for 18 people
+            const hoursBetweenShifts = 24 / shiftsPerDay
+            const shiftStartHour = (index * hoursBetweenShifts) % 24
+            
+            // Add small stagger to avoid exact overlaps (0-45 minutes)
+            const staggerMinutes = (index % 6) * 7.5 // Stagger by 7.5 min increments
+            const shiftStartHours = shiftStartHour + (staggerMinutes / 60)
+            
+            const shiftStart = new Date(startOfDay.getTime() + shiftStartHours * 60 * 60 * 1000)
+            let shiftEnd = new Date(shiftStart.getTime() + shiftDuration)
+            
+            // Handle shifts that extend past midnight
+            if (shiftEnd.getTime() > startOfDay.getTime() + dayDuration) {
+              const nextDay = new Date(startOfDay)
+              nextDay.setDate(nextDay.getDate() + 1)
+              const overflowMs = shiftEnd.getTime() - (startOfDay.getTime() + dayDuration)
+              shiftEnd = new Date(nextDay.getTime() + overflowMs)
+            }
+
+            // Determine status based on shift time and active status
+            // For Dec 31 crew, mark them as 'on_shift' if their shift overlaps with Dec 31
+            // Don't filter by current time - show all crew who worked that day
+            let status: CrewStatus = 'on_shift' // Default to on_shift for Dec 31 crew
+            const shiftStartTime = shiftStart.getTime()
+            const shiftEndTime = shiftEnd.getTime()
+            const nowTime = now.getTime()
+            
+            // Handle overnight shifts (end time is on next day)
+            const isOvernight = shiftEnd.getDate() > shiftStart.getDate()
+            
+            // Check if shift overlaps with Dec 31 (the day we care about)
+            const dec31Start = startOfDay.getTime()
+            const dec31End = startOfDay.getTime() + dayDuration
+            
+            const shiftOverlapsDec31 = isOvernight 
+              ? (shiftStartTime < dec31End || shiftEndTime > dec31Start)
+              : (shiftStartTime < dec31End && shiftEndTime > dec31Start)
+            
+            if (shiftOverlapsDec31) {
+              // Check if currently active (at noon on Dec 31)
+              if (isOvernight) {
+                if (nowTime >= shiftStartTime || nowTime < shiftEndTime) {
+                  status = 'available' as CrewStatus
+                }
+              } else {
+                if (nowTime >= shiftStartTime && nowTime < shiftEndTime) {
+                  status = 'available' as CrewStatus
+                }
+              }
+            } else {
+              // Shift doesn't overlap Dec 31, mark as off_shift
+              status = 'off_shift'
+            }
 
             return {
               id: crewId,
               name: crewInfo.name,
               role: 'Cleaner',
               shift: {
-                startTime,
-                endTime,
+                startTime: shiftStart,
+                endTime: shiftEnd,
               },
-              status: crewInfo.activeOnDec31 ? ('available' as CrewStatus) : ('off_shift' as CrewStatus),
+              status,
             }
           })
 

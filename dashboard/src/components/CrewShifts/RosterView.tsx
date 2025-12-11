@@ -28,38 +28,37 @@ import {
 } from '@mui/icons-material'
 import { useState, useMemo } from 'react'
 import { useCrew } from '../../context/CrewContext'
+import { useOptimization } from '../../context/OptimizationContext'
 import { Crew, CrewStatus } from '../../types'
-import { format, isAfter, isBefore } from 'date-fns'
+import { format, isBefore, isAfter } from 'date-fns'
 import { CURRENT_DATE } from '../../constants'
 import EditShiftDialog from './EditShiftDialog'
 
 function RosterView() {
   const { crew, updateCrewStatus, updateCrewShift } = useCrew()
+  const { optimizationResult } = useOptimization()
   const [anchorEl, setAnchorEl] = useState<{ [key: string]: HTMLElement | null }>({})
   const [editDialogOpen, setEditDialogOpen] = useState(false)
   const [selectedCrew, setSelectedCrew] = useState<Crew | null>(null)
   const now = CURRENT_DATE
 
   // Separate crew by status
+  // Since optimization covers the entire day, combine active and upcoming shifts
   const crewByStatus = useMemo(() => {
     const active: Crew[] = []
-    const upcoming: Crew[] = []
     const offShift: Crew[] = []
 
     crew.forEach((member) => {
       if (member.status === 'off_shift') {
         offShift.push(member)
-      } else if (
-        isBefore(now, member.shift.startTime) &&
-        isAfter(member.shift.endTime, member.shift.startTime)
-      ) {
-        upcoming.push(member)
       } else {
+        // Include both currently active crew and upcoming shifts
+        // since optimization covers the entire day
         active.push(member)
       }
     })
 
-    return { active, upcoming, offShift }
+    return { active, offShift }
   }, [crew, now])
 
   const handleMenuOpen = (crewId: string, event: React.MouseEvent<HTMLElement>) => {
@@ -180,15 +179,45 @@ function RosterView() {
                     </Box>
                   </TableCell>
                   <TableCell>
-                    {member.currentTaskId ? (
-                      <Typography variant="body2" color="primary">
-                        {member.currentTaskId}
-                      </Typography>
-                    ) : (
-                      <Typography variant="body2" color="text.secondary">
-                        None
-                      </Typography>
-                    )}
+                    {(() => {
+                      // Check optimization results first, then fallback to current task
+                      const crewSchedule = optimizationResult?.crewSchedules[member.id] || []
+                      const currentScheduleEvent = crewSchedule.find(
+                        (event) => now >= event.start && now < event.end && event.taskId
+                      )
+                      
+                      if (currentScheduleEvent?.taskId) {
+                        return (
+                          <Typography variant="body2" color="primary">
+                            {currentScheduleEvent.taskId}
+                          </Typography>
+                        )
+                      }
+                      
+                      if (member.currentTaskId) {
+                        return (
+                          <Typography variant="body2" color="primary">
+                            {member.currentTaskId}
+                          </Typography>
+                        )
+                      }
+                      
+                      // Show next scheduled task if available
+                      const nextTask = crewSchedule.find((event) => event.start > now && event.taskId)
+                      if (nextTask) {
+                        return (
+                          <Typography variant="body2" color="text.secondary">
+                            Next: {format(nextTask.start, 'HH:mm')}
+                          </Typography>
+                        )
+                      }
+                      
+                      return (
+                        <Typography variant="body2" color="text.secondary">
+                          None
+                        </Typography>
+                      )
+                    })()}
                   </TableCell>
                   <TableCell align="right">
                     <IconButton
@@ -237,8 +266,7 @@ function RosterView() {
           Crew Roster - {format(now, 'MMMM d, yyyy')}
         </Typography>
 
-        {renderCrewTable(crewByStatus.active, 'Active Crew')}
-        {renderCrewTable(crewByStatus.upcoming, 'Upcoming Shifts')}
+        {renderCrewTable(crewByStatus.active, 'Active Crew (All Shifts Today)')}
         {renderCrewTable(crewByStatus.offShift, 'Off Shift')}
 
         {crew.length === 0 && (

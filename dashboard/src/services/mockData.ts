@@ -155,16 +155,71 @@ export function generateMockCrew(count: number = 15): Crew[] {
   // Use CURRENT_DATE for consistent date handling (Dec 31, 2024)
   const CURRENT_DATE = new Date('2024-12-31T12:00:00')
   const now = CURRENT_DATE
-  const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 6, 0, 0)
+  const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0)
 
   return Array.from({ length: count }, (_, i) => {
-    const shiftStart = new Date(startOfDay.getTime() + (i % 3) * 8 * 60 * 60 * 1000)
-    const shiftEnd = new Date(shiftStart.getTime() + 8 * 60 * 60 * 1000)
+    // Spread shifts throughout the entire 24-hour day
+    // Each shift is 8 hours, so we can fit 3 shifts per day
+    // Distribute start times evenly across 24 hours with some overlap
+    const shiftDuration = 8 * 60 * 60 * 1000 // 8 hours
+    const dayDuration = 24 * 60 * 60 * 1000 // 24 hours
+    
+    // Create 4 shift periods to better cover the day:
+    // Early morning (0-8), Morning (6-14), Afternoon (12-20), Evening (16-24)
+    // This ensures coverage throughout the day with overlaps
+    const shiftPeriods = [
+      { start: 0, end: 8 },      // 00:00 - 08:00
+      { start: 6, end: 14 },     // 06:00 - 14:00
+      { start: 12, end: 20 },    // 12:00 - 20:00
+      { start: 16, end: 24 },    // 16:00 - 24:00 (next day 00:00)
+    ]
+    
+    const shiftIndex = i % shiftPeriods.length
+    const period = shiftPeriods[shiftIndex]
+    
+    // Add some variation within each shift period (stagger by up to 1 hour)
+    const staggerHours = (i % 3) * 0.5 // Stagger by 30 min increments
+    const shiftStartHours = period.start + staggerHours
+    
+    const shiftStart = new Date(startOfDay.getTime() + shiftStartHours * 60 * 60 * 1000)
+    let shiftEnd = new Date(shiftStart.getTime() + shiftDuration)
+    
+    // Handle shifts that extend past midnight
+    if (shiftEnd.getTime() > startOfDay.getTime() + dayDuration) {
+      const nextDay = new Date(startOfDay)
+      nextDay.setDate(nextDay.getDate() + 1)
+      const overflowMs = shiftEnd.getTime() - (startOfDay.getTime() + dayDuration)
+      shiftEnd = new Date(nextDay.getTime() + overflowMs)
+    }
 
     let status: CrewStatus = 'on_shift'
-    if (now < shiftStart) status = 'off_shift'
-    if (now > shiftEnd) status = 'off_shift'
-    if (i % 5 === 0 && now >= shiftStart && now <= shiftEnd) status = 'on_break'
+    const shiftStartTime = shiftStart.getTime()
+    const shiftEndTime = shiftEnd.getTime()
+    const nowTime = now.getTime()
+    
+    // Handle overnight shifts (end time is on next day)
+    const isOvernight = shiftEnd.getDate() > shiftStart.getDate()
+    
+    if (isOvernight) {
+      // Overnight shift: active if now is after start OR before end (next day)
+      if (nowTime >= shiftStartTime || nowTime < shiftEndTime) {
+        status = 'on_shift'
+      } else {
+        status = 'off_shift'
+      }
+    } else {
+      // Regular shift: active if now is between start and end
+      if (nowTime >= shiftStartTime && nowTime < shiftEndTime) {
+        status = 'on_shift'
+      } else {
+        status = 'off_shift'
+      }
+    }
+    
+    // Some crew members are on break
+    if (i % 5 === 0 && status === 'on_shift') {
+      status = 'on_break'
+    }
 
     return {
       id: `crew-${i + 1}`,
