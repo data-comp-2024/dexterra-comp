@@ -152,6 +152,22 @@ const dataSlice = createSlice({
         state.crew[index] = action.payload
       }
     },
+    updateEmergencyEvent: (state, action: PayloadAction<EmergencyEvent>) => {
+      const index = state.emergencyEvents.findIndex((e) => e.id === action.payload.id)
+      if (index !== -1) {
+        state.emergencyEvents[index] = action.payload
+      } else {
+        state.emergencyEvents.unshift(action.payload)
+      }
+    },
+    updateHappyScore: (state, action: PayloadAction<HappyScore>) => {
+      const index = state.happyScores.findIndex((h) => h.washroomId === action.payload.washroomId)
+      if (index !== -1) {
+        state.happyScores[index] = action.payload
+      } else {
+        state.happyScores.push(action.payload)
+      }
+    },
     deleteTask: (state, action: PayloadAction<string>) => {
       state.tasks = state.tasks.filter((t) => t.id !== action.payload)
     },
@@ -191,5 +207,5 @@ const dataSlice = createSlice({
   },
 })
 
-export const { updateWashroom, deleteWashroom, updateTask, updateCrew, deleteTask, addActivityLogEntry, addNotification } = dataSlice.actions
+export const { updateWashroom, deleteWashroom, updateTask, updateCrew, updateEmergencyEvent, updateHappyScore, deleteTask, addActivityLogEntry, addNotification } = dataSlice.actions
 export default dataSlice.reducer
