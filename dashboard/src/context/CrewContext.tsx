@@ -1,6 +1,8 @@
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
+import { createContext, useContext, ReactNode } from 'react'
+import { useDispatch } from 'react-redux'
 import { Crew, CrewStatus } from '../types'
 import { useData } from '../hooks/useData'
+import { updateCrew } from '../store/slices/dataSlice'
 
 interface CrewContextType {
     crew: Crew[]
@@ -12,48 +14,33 @@ interface CrewContextType {
 const CrewContext = createContext<CrewContextType | undefined>(undefined)
 
 export function CrewProvider({ children }: { children: ReactNode }) {
-    const { crew: initialCrew, loading: dataLoading } = useData()
-    const [crew, setCrew] = useState<Crew[]>([])
-    const [loading, setLoading] = useState(true)
-
-    useEffect(() => {
-        if (!dataLoading && initialCrew.length > 0) {
-            setCrew(initialCrew)
-            setLoading(false)
-        } else if (!dataLoading && initialCrew.length === 0) {
-            // Handle case where data is loaded but empty
-            setLoading(false)
-        }
-    }, [dataLoading, initialCrew])
+    const { crew, loading } = useData()
+    const dispatch = useDispatch()
 
     const updateCrewStatus = (crewId: string, status: CrewStatus, reason?: string) => {
-        setCrew((prevCrew) =>
-            prevCrew.map((member) =>
-                member.id === crewId ? { ...member, status } : member
-            )
-        )
-        console.log(`Updated crew ${crewId} status to ${status}${reason ? ` (${reason})` : ''}`)
+        const member = crew.find(c => c.id === crewId)
+        if (member) {
+            dispatch(updateCrew({ ...member, status }))
+            console.log(`Updated crew ${crewId} status to ${status}${reason ? ` (${reason})` : ''}`)
+        }
     }
 
     const updateCrewShift = (crewId: string, startTime: Date, endTime: Date) => {
-        setCrew((prevCrew) =>
-            prevCrew.map((member) =>
-                member.id === crewId
-                    ? {
-                          ...member,
-                          shift: {
-                              startTime,
-                              endTime,
-                          },
-                      }
-                    : member
-            )
-        )
-        console.log(`Updated crew ${crewId} shift to ${startTime.toLocaleTimeString()} - ${endTime.toLocaleTimeString()}`)
+        const member = crew.find(c => c.id === crewId)
+        if (member) {
+            dispatch(updateCrew({
+                ...member,
+                shift: {
+                    startTime,
+                    endTime,
+                },
+            }))
+            console.log(`Updated crew ${crewId} shift to ${startTime.toLocaleTimeString()} - ${endTime.toLocaleTimeString()}`)
+        }
     }
 
     return (
-        <CrewContext.Provider value={{ crew, updateCrewStatus, updateCrewShift, loading: loading || dataLoading }}>
+        <CrewContext.Provider value={{ crew, updateCrewStatus, updateCrewShift, loading }}>
             {children}
         </CrewContext.Provider>
     )

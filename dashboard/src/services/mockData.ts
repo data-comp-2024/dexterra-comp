@@ -619,7 +619,7 @@ export function generateMockActivityLog(count: number = 100): ActivityLogEntry[]
       userName,
       actionType,
       affectedEntityType,
-      affectedEntityId: details.taskId || details.washroomId || details.crewId || `entity-${i + 1}`,
+      affectedEntityId: (details.taskId as string) || (details.washroomId as string) || (details.crewId as string) || `entity-${i + 1}`,
       details,
       beforeValues,
       afterValues,

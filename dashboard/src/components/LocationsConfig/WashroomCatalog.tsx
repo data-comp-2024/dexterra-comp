@@ -34,10 +34,13 @@ import {
   Search,
 } from '@mui/icons-material'
 import { useState, useMemo, useEffect } from 'react'
+import { useDispatch } from 'react-redux'
+import { deleteWashroom } from '../../store/slices/dataSlice'
 import { BathroomCatalogItem, loadBathroomCatalog } from '../../services/dataService'
 import WashroomEditDialog from './WashroomEditDialog'
 
 function WashroomCatalog() {
+  const dispatch = useDispatch()
   const [bathrooms, setBathrooms] = useState<BathroomCatalogItem[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
@@ -147,6 +150,10 @@ function WashroomCatalog() {
   const handleDeleteConfirm = () => {
     if (deletingBathroom) {
       setBathrooms((prev) => prev.filter((b) => b.id !== deletingBathroom.id))
+
+      // Dispatch delete action to Redux store to update Live Ops
+      dispatch(deleteWashroom(deletingBathroom.id))
+
       setDeletingBathroom(null)
       setShowDeleteDialog(false)
       // TODO: Delete from backend/API

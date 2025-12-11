@@ -10,12 +10,14 @@ interface UseAutoRefreshOptions {
   intervalMs?: number
   onRefresh?: () => Promise<void> | void
   enabled?: boolean
+  triggerOnMount?: boolean
 }
 
 export function useAutoRefresh({
   intervalMs = 30000, // 30 seconds default
   onRefresh,
   enabled = true,
+  triggerOnMount = false,
 }: UseAutoRefreshOptions = {}) {
   const dispatch = useDispatch()
   const intervalRef = useRef<NodeJS.Timeout | null>(null)
@@ -44,7 +46,9 @@ export function useAutoRefresh({
     }
 
     // Initial refresh
-    refresh()
+    if (triggerOnMount) {
+      refresh()
+    }
 
     // Set up interval
     intervalRef.current = setInterval(() => {

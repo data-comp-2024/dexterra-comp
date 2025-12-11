@@ -19,6 +19,7 @@ import {
   Notification,
   WashroomType,
   TaskType,
+  CrewStatus,
 } from '../types'
 import { DATA_ROOT } from '../constants'
 
@@ -1611,3 +1612,11 @@ export async function loadJanitorClosets(): Promise<JanitorClosetItem[]> {
   }
 }
 
+
+/**
+ * Load notifications
+ */
+export async function loadNotifications(): Promise<Notification[]> {
+  // For now, just return mock notifications
+  return generateMockNotifications()
+}
