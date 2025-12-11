@@ -42,7 +42,7 @@ function PerformanceFilters({ onFiltersChange }: PerformanceFiltersProps) {
 
   // Extract unique values
   const terminals = Array.from(new Set(washrooms.map((w) => w.terminal)))
-  const zones = Array.from(new Set(washrooms.map((w) => w.zone).filter(Boolean)))
+  const zones = Array.from(new Set(washrooms.map((w) => w.concourse).filter(Boolean)))
   const washroomTypes = Array.from(new Set(washrooms.map((w) => w.type)))
 
   const timeOfDayOptions = [

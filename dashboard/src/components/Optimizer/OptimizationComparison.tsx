@@ -88,7 +88,7 @@ function OptimizationComparison({
           <Typography variant="h6" sx={{ fontWeight: 600 }}>
             Current vs Proposed Plan
           </Typography>
-          <Tabs value={viewMode} onChange={(_, v) => setViewMode(v)} size="small">
+          <Tabs value={viewMode} onChange={(_, v) => setViewMode(v)}>
             <Tab label="Comparison" value="comparison" />
             <Tab label="Side-by-Side" value="side-by-side" />
           </Tabs>

@@ -166,6 +166,8 @@ export interface ActivityLogEntry {
     | 'optimization_run'
     | 'config_changed'
     | 'crew_availability_changed'
+    | 'crew_updated'
+    | 'washroom_deleted'
   affectedEntityType: 'task' | 'washroom' | 'crew' | 'config'
   affectedEntityId: string
   details: Record<string, unknown>

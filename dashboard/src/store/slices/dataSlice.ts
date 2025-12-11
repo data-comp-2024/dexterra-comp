@@ -155,6 +155,9 @@ const dataSlice = createSlice({
     deleteTask: (state, action: PayloadAction<string>) => {
       state.tasks = state.tasks.filter((t) => t.id !== action.payload)
     },
+    addActivityLogEntry: (state, action: PayloadAction<ActivityLogEntry>) => {
+      state.activityLog.unshift(action.payload)
+    },
     addNotification: (state, action: PayloadAction<Notification>) => {
       state.notifications.unshift(action.payload)
     },
@@ -188,5 +191,5 @@ const dataSlice = createSlice({
   },
 })
 
-export const { updateWashroom, deleteWashroom, updateTask, updateCrew, deleteTask, addNotification } = dataSlice.actions
+export const { updateWashroom, deleteWashroom, updateTask, updateCrew, deleteTask, addActivityLogEntry, addNotification } = dataSlice.actions
 export default dataSlice.reducer

@@ -35,7 +35,8 @@ import {
 } from '@mui/icons-material'
 import { useState, useMemo, useEffect } from 'react'
 import { useDispatch } from 'react-redux'
-import { deleteWashroom } from '../../store/slices/dataSlice'
+import { deleteWashroom, addActivityLogEntry } from '../../store/slices/dataSlice'
+import { ActivityLogEntry } from '../../types'
 import { BathroomCatalogItem, loadBathroomCatalog } from '../../services/dataService'
 import WashroomEditDialog from './WashroomEditDialog'
 
@@ -153,6 +154,21 @@ function WashroomCatalog() {
 
       // Dispatch delete action to Redux store to update Live Ops
       dispatch(deleteWashroom(deletingBathroom.id))
+
+      // Log activity
+      const logEntry: ActivityLogEntry = {
+        id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+        timestamp: new Date(),
+        userId: 'current-user',
+        userName: 'Current User',
+        actionType: 'washroom_deleted',
+        affectedEntityType: 'washroom',
+        affectedEntityId: deletingBathroom.id,
+        details: { deletedWashroom: deletingBathroom },
+        beforeValues: deletingBathroom as unknown as Record<string, unknown>,
+        afterValues: undefined
+      }
+      dispatch(addActivityLogEntry(logEntry))
 
       setDeletingBathroom(null)
       setShowDeleteDialog(false)

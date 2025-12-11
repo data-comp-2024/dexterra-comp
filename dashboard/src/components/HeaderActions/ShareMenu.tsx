@@ -76,7 +76,7 @@ function ShareMenu({ anchorEl, onClose }: ShareMenuProps) {
           horizontal: 'right',
         }}
       >
-        {navigator.share && (
+        {typeof navigator.share === 'function' && (
           <MenuItem onClick={handleShareAPI}>
             <ListItemIcon>
               <LinkIcon />

@@ -2,7 +2,8 @@ import { createContext, useContext, ReactNode } from 'react'
 import { useDispatch } from 'react-redux'
 import { Crew, CrewStatus } from '../types'
 import { useData } from '../hooks/useData'
-import { updateCrew } from '../store/slices/dataSlice'
+import { updateCrew, addActivityLogEntry } from '../store/slices/dataSlice'
+import { ActivityLogEntry } from '../types'
 
 interface CrewContextType {
     crew: Crew[]
@@ -21,7 +22,22 @@ export function CrewProvider({ children }: { children: ReactNode }) {
     const updateCrewStatus = (crewId: string, status: CrewStatus, reason?: string) => {
         const member = crew.find(c => c.id === crewId)
         if (member) {
-            dispatch(updateCrew({ ...member, status }))
+            const updatedMember = { ...member, status }
+            dispatch(updateCrew(updatedMember))
+
+            const logEntry: ActivityLogEntry = {
+                id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+                timestamp: new Date(),
+                userId: 'current-user',
+                userName: 'Current User',
+                actionType: 'crew_availability_changed',
+                affectedEntityType: 'crew',
+                affectedEntityId: crewId,
+                details: { status, reason },
+                beforeValues: { status: member.status },
+                afterValues: { status: status }
+            }
+            dispatch(addActivityLogEntry(logEntry))
             console.log(`Updated crew ${crewId} status to ${status}${reason ? ` (${reason})` : ''}`)
         }
     }
@@ -43,7 +59,22 @@ export function CrewProvider({ children }: { children: ReactNode }) {
     const updateCrewDetails = (crewId: string, updates: Partial<Crew>) => {
         const member = crew.find(c => c.id === crewId)
         if (member) {
-            dispatch(updateCrew({ ...member, ...updates }))
+            const updatedMember = { ...member, ...updates }
+            dispatch(updateCrew(updatedMember))
+
+            const logEntry: ActivityLogEntry = {
+                id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+                timestamp: new Date(),
+                userId: 'current-user',
+                userName: 'Current User',
+                actionType: 'crew_updated',
+                affectedEntityType: 'crew',
+                affectedEntityId: crewId,
+                details: { updates },
+                beforeValues: member as unknown as Record<string, unknown>,
+                afterValues: updatedMember as unknown as Record<string, unknown>
+            }
+            dispatch(addActivityLogEntry(logEntry))
             console.log(`Updated crew ${crewId} details`, updates)
         }
     }

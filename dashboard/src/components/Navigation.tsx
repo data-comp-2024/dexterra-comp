@@ -56,7 +56,7 @@ function Navigation() {
         {tabs.map((tab) => {
           const Icon = tab.icon
           const isActive = location.pathname === tab.path || (tab.path === '/live-ops' && location.pathname === '/')
-          
+
           return (
             <ListItem key={tab.path} disablePadding sx={{ mb: 0.5 }}>
               <ListItemButton
@@ -96,7 +96,6 @@ function Navigation() {
                 />
                 <ListItemText
                   primary={tab.label}
-                  secondary={tab.subtitle}
                   primaryTypographyProps={{
                     fontSize: '0.875rem',
                     fontWeight: isActive ? 600 : 400,
